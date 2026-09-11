@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 
 import '../../../widgets/app_card.dart';
 import '../../../widgets/brand_logo.dart';
+import '../../demo/pages/demo_page.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/forgot_password_sheet.dart';
 import 'register_page.dart';
@@ -37,6 +39,18 @@ class _LoginPageState extends State<LoginPage> {
 
     if (!mounted) return;
     if (!success && auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+      auth.clearError();
+    }
+  }
+
+  Future<void> _social(OAuthProvider provider) async {
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.signInWithOAuth(provider);
+    if (!mounted) return;
+    if (!ok && auth.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(auth.errorMessage!)),
       );
@@ -149,6 +163,29 @@ class _LoginPageState extends State<LoginPage> {
                                   )
                                 : const Text('Entrar'),
                           ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              const Expanded(child: Divider()),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('ou', style: theme.textTheme.bodySmall),
+                              ),
+                              const Expanded(child: Divider()),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : () => _social(OAuthProvider.google),
+                            icon: const Icon(Icons.g_mobiledata, size: 24),
+                            label: const Text('Continuar com Google'),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : () => _social(OAuthProvider.apple),
+                            icon: const Icon(Icons.apple),
+                            label: const Text('Continuar com Apple'),
+                          ),
                         ],
                       ),
                     ),
@@ -159,6 +196,13 @@ class _LoginPageState extends State<LoginPage> {
                       MaterialPageRoute(builder: (_) => const RegisterPage()),
                     ),
                     child: const Text('Não tem uma conta? Cadastre-se grátis'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DemoPage()),
+                    ),
+                    icon: const Icon(Icons.play_circle_outline, size: 18),
+                    label: const Text('Ver demonstração'),
                   ),
                 ],
               ),

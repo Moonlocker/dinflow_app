@@ -7,6 +7,7 @@ import '../../../models/transaction.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/empty_state.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../authors/providers/author_provider.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../widgets/transaction_form_sheet.dart';
 
@@ -14,16 +15,23 @@ class _Filters {
   const _Filters({
     this.type = 'all',
     this.categoryId,
+    this.authorNumber,
     this.from,
     this.to,
   });
 
   final String type;
   final String? categoryId;
+  final String? authorNumber;
   final DateTime? from;
   final DateTime? to;
 
-  bool get isEmpty => type == 'all' && categoryId == null && from == null && to == null;
+  bool get isEmpty =>
+      type == 'all' &&
+      categoryId == null &&
+      authorNumber == null &&
+      from == null &&
+      to == null;
 }
 
 class TransactionsPage extends StatefulWidget {
@@ -67,10 +75,22 @@ class _TransactionsPageState extends State<TransactionsPage> {
       if (_filters.categoryId != null && transaction.categoryId != _filters.categoryId) {
         return false;
       }
+      if (_filters.authorNumber != null &&
+          transaction.authorNumber != _filters.authorNumber) {
+        return false;
+      }
       if (_filters.from != null && transaction.date.isBefore(_filters.from!)) return false;
       if (_filters.to != null && transaction.date.isAfter(_filters.to!)) return false;
       return true;
     }).toList();
+  }
+
+  String _authorName(String whatsapp) {
+    final authors = context.read<AuthorProvider>().authors;
+    for (final author in authors) {
+      if (author.whatsapp == whatsapp) return author.name;
+    }
+    return whatsapp;
   }
 
   Future<void> _openFilters() async {
@@ -81,6 +101,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
       builder: (_) => _TransactionFiltersSheet(
         initial: _filters,
         categories: context.read<FinanceProvider>().categories,
+        authors: context.read<AuthorProvider>().authors,
       ),
     );
     if (result != null) {
@@ -149,6 +170,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'new-transaction',
         onPressed: () => showTransactionForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Nova'),
@@ -231,6 +253,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     onRemove: () => setState(() {
                       _filters = _Filters(
                         categoryId: _filters.categoryId,
+                        authorNumber: _filters.authorNumber,
                         from: _filters.from,
                         to: _filters.to,
                       );
@@ -243,6 +266,20 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     onRemove: () => setState(() {
                       _filters = _Filters(
                         type: _filters.type,
+                        authorNumber: _filters.authorNumber,
+                        from: _filters.from,
+                        to: _filters.to,
+                      );
+                      _page = 1;
+                    }),
+                  ),
+                if (_filters.authorNumber != null)
+                  _FilterChip(
+                    label: _authorName(_filters.authorNumber!),
+                    onRemove: () => setState(() {
+                      _filters = _Filters(
+                        type: _filters.type,
+                        categoryId: _filters.categoryId,
                         from: _filters.from,
                         to: _filters.to,
                       );
@@ -257,6 +294,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                       _filters = _Filters(
                         type: _filters.type,
                         categoryId: _filters.categoryId,
+                        authorNumber: _filters.authorNumber,
                       );
                       _page = 1;
                     }),
@@ -487,10 +525,15 @@ class _TransactionRow extends StatelessWidget {
 }
 
 class _TransactionFiltersSheet extends StatefulWidget {
-  const _TransactionFiltersSheet({required this.initial, required this.categories});
+  const _TransactionFiltersSheet({
+    required this.initial,
+    required this.categories,
+    required this.authors,
+  });
 
   final _Filters initial;
   final List<Category> categories;
+  final List<AuthorOption> authors;
 
   @override
   State<_TransactionFiltersSheet> createState() => _TransactionFiltersSheetState();
@@ -499,6 +542,7 @@ class _TransactionFiltersSheet extends StatefulWidget {
 class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
   late String _type = widget.initial.type;
   late String? _categoryId = widget.initial.categoryId;
+  late String? _authorNumber = widget.initial.authorNumber;
   late DateTime? _from = widget.initial.from;
   late DateTime? _to = widget.initial.to;
 
@@ -557,6 +601,24 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
             ],
             onChanged: (value) => setState(() => _categoryId = value),
           ),
+          if (widget.authors.length > 1) ...[
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String?>(
+              initialValue: _authorNumber,
+              decoration: const InputDecoration(labelText: 'Autor'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Todos')),
+                for (final author in widget.authors)
+                  DropdownMenuItem(
+                    value: author.whatsapp,
+                    child: Text(
+                      author.isMain ? '${author.name} (principal)' : author.name,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => setState(() => _authorNumber = value),
+            ),
+          ],
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _pickRange,
@@ -573,7 +635,13 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
               Expanded(
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(
-                    _Filters(type: _type, categoryId: _categoryId, from: _from, to: _to),
+                    _Filters(
+                      type: _type,
+                      categoryId: _categoryId,
+                      authorNumber: _authorNumber,
+                      from: _from,
+                      to: _to,
+                    ),
                   ),
                   child: const Text('Aplicar'),
                 ),

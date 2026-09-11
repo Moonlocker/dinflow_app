@@ -14,6 +14,11 @@ class Profile {
     this.twoFactorEnabled = false,
     this.theme = 'light',
     this.locale = 'pt-BR',
+    this.expenseAlerts = true,
+    this.goalReminders = true,
+    this.monthlyReports = false,
+    this.billReminders = true,
+    this.affiliateCode,
   });
 
   final String id;
@@ -29,6 +34,11 @@ class Profile {
   final bool twoFactorEnabled;
   final String theme;
   final String locale;
+  final bool expenseAlerts;
+  final bool goalReminders;
+  final bool monthlyReports;
+  final bool billReminders;
+  final String? affiliateCode;
 
   bool get isSuperadmin => role == 'superadmin';
 
@@ -75,6 +85,11 @@ class Profile {
       twoFactorEnabled: (map['two_factor_enabled'] ?? false) as bool,
       theme: (map['theme'] ?? 'light') as String,
       locale: (map['locale'] ?? 'pt-BR') as String,
+      expenseAlerts: (map['expense_alerts'] ?? true) as bool,
+      goalReminders: (map['goal_reminders'] ?? true) as bool,
+      monthlyReports: (map['monthly_reports'] ?? false) as bool,
+      billReminders: (map['bill_reminders'] ?? true) as bool,
+      affiliateCode: map['affiliate_code'] as String?,
     );
   }
 }

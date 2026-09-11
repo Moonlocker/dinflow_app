@@ -14,6 +14,7 @@ class BillCard extends StatelessWidget {
     required this.dueLabel,
     required this.dueColor,
     required this.onPay,
+    required this.onUnpay,
     required this.onEdit,
     required this.onDelete,
   });
@@ -25,6 +26,7 @@ class BillCard extends StatelessWidget {
   final String dueLabel;
   final Color dueColor;
   final VoidCallback onPay;
+  final VoidCallback onUnpay;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -115,6 +117,12 @@ class BillCard extends StatelessWidget {
                   onPressed: onPay,
                   icon: const Icon(Icons.attach_money, size: 16),
                   label: const Text('Pagar'),
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: onUnpay,
+                  icon: const Icon(Icons.undo, size: 16),
+                  label: const Text('Desmarcar'),
                 ),
               const Spacer(),
               IconButton(

@@ -1,5 +1,9 @@
-import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/realtime/realtime_utils.dart';
 import '../../../models/category.dart';
 import '../../../models/goal.dart';
 import '../../../models/transaction.dart';
@@ -39,6 +43,10 @@ class FinanceProvider extends ChangeNotifier {
   DateTime _currentDate = DateTime.now();
   bool _loading = false;
   String? _error;
+  String? _authorFilter;
+  RealtimeChannel? _channel;
+  String? _subscribedUserId;
+  Timer? _debounce;
 
   List<Transaction> get transactions => _allTransactions;
   List<Goal> get goals => _allGoals;
@@ -47,8 +55,24 @@ class FinanceProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
   String? get userId => _userId;
+  String? get authorFilter => _authorFilter;
   bool get hasData =>
       _allTransactions.isNotEmpty || _allGoals.isNotEmpty || _allCategories.isNotEmpty;
+
+  /// Define o autor (número de WhatsApp) usado nos cálculos do dashboard.
+  void setAuthorFilter(String? value) {
+    if (_authorFilter == value) return;
+    _authorFilter = value;
+    notifyListeners();
+  }
+
+  /// Transações considerando o filtro de autor ativo.
+  List<Transaction> get _filteredTransactions {
+    if (_authorFilter == null) return _allTransactions;
+    return _allTransactions
+        .where((transaction) => transaction.authorNumber == _authorFilter)
+        .toList();
+  }
 
   Future<void> load(String userId, {bool force = false}) async {
     if (_loading) return;
@@ -68,18 +92,65 @@ class FinanceProvider extends ChangeNotifier {
       _allTransactions = results[0] as List<Transaction>;
       _allGoals = results[1] as List<Goal>;
       _allCategories = results[2] as List<Category>;
+      await _syncCategoryBudgetGoals(userId);
     } catch (_) {
       _error = 'Não foi possível carregar seus dados. Tente novamente.';
     }
 
     _loading = false;
     notifyListeners();
+    _subscribe(userId);
   }
 
   Future<void> reload() async {
     final userId = _userId;
     if (userId == null) return;
     await load(userId, force: true);
+  }
+
+  /// Assina mudanças em transações/metas/categorias do usuário.
+  void _subscribe(String userId) {
+    if (_subscribedUserId == userId && _channel != null) return;
+    _unsubscribe();
+    _subscribedUserId = userId;
+    final channel = Supabase.instance.client
+        .channel(realtimeChannelName('finance', userId));
+    for (final table in ['transactions', 'goals', 'categories']) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'user_id',
+          value: userId,
+        ),
+        callback: (_) => _scheduleReload(),
+      );
+    }
+    channel.subscribe();
+    _channel = channel;
+  }
+
+  void _scheduleReload() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      final userId = _userId;
+      if (userId != null) load(userId, force: true);
+    });
+  }
+
+  void _unsubscribe() {
+    _channel?.unsubscribe();
+    _channel = null;
+    _subscribedUserId = null;
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _unsubscribe();
+    super.dispose();
   }
 
   void nextMonth() {
@@ -200,6 +271,72 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Recalcula o valor atual das metas de orçamento por categoria, a partir
+  /// das transações do período (mesmo comportamento do webapp).
+  Future<void> _syncCategoryBudgetGoals(String userId) async {
+    var changed = false;
+    for (final goal in _allGoals) {
+      if (goal.type != 'category_budget' || goal.categoryId == null) continue;
+      final spending = _categorySpending(goal.categoryId!, goal.period);
+      if ((spending - goal.currentAmount).abs() > 0.01) {
+        await _goals.updateGoal(
+          id: goal.id,
+          userId: userId,
+          values: {'current_amount': spending},
+        );
+        changed = true;
+      }
+    }
+    if (changed) {
+      _allGoals = await _goals.fetchGoals(userId);
+    }
+  }
+
+  double _categorySpending(String categoryId, String? period) {
+    final range = _periodRange(period);
+    return _allTransactions
+        .where((transaction) =>
+            transaction.type == 'expense' &&
+            transaction.categoryId == categoryId &&
+            !transaction.date.isBefore(range.$1) &&
+            !transaction.date.isAfter(range.$2))
+        .fold(0.0, (sum, transaction) => sum + transaction.amount);
+  }
+
+  (DateTime, DateTime) _periodRange(String? period) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    const endOfDay = Duration(hours: 23, minutes: 59, seconds: 59);
+    switch (period) {
+      case 'daily':
+        return (today, today.add(endOfDay));
+      case 'weekly':
+        final start = today.subtract(Duration(days: now.weekday - DateTime.monday));
+        return (start, start.add(Duration(days: 6)).add(endOfDay));
+      case 'yearly':
+        final start = DateTime(now.year, 1, 1);
+        return (start, DateTime(now.year, 12, 31).add(endOfDay));
+      case 'monthly':
+      default:
+        final start = DateTime(now.year, now.month, 1);
+        final end = DateTime(now.year, now.month + 1, 0).add(endOfDay);
+        return (start, end);
+    }
+  }
+
+  /// Adiciona um valor ao progresso de uma meta manual.
+  Future<void> addToGoal(String id, double value) async {
+    final userId = _userId;
+    if (userId == null) throw StateError('Usuário não autenticado');
+    final goal = _allGoals.firstWhere((item) => item.id == id);
+    await _goals.updateGoal(
+      id: id,
+      userId: userId,
+      values: {'current_amount': goal.currentAmount + value},
+    );
+    await _reloadGoals(userId);
+  }
+
   // ---------------------------------------------------------------- Categorias
 
   Future<void> addCategory(Map<String, dynamic> values) async {
@@ -236,7 +373,7 @@ class FinanceProvider extends ChangeNotifier {
       _transactionsFor(_currentDate.year, _currentDate.month);
 
   List<Transaction> _transactionsFor(int year, int month) {
-    return _allTransactions.where((transaction) {
+    return _filteredTransactions.where((transaction) {
       return transaction.date.year == year && transaction.date.month == month;
     }).toList();
   }
@@ -268,7 +405,8 @@ class FinanceProvider extends ChangeNotifier {
     return ((current - previous) / previous) * 100;
   }
 
-  List<Transaction> get recentTransactions => _allTransactions.take(5).toList();
+  List<Transaction> get recentTransactions =>
+      _filteredTransactions.take(5).toList();
 
   List<Goal> get activeGoals => _allGoals
       .where((goal) => !goal.isCompleted && goal.currentAmount < goal.targetAmount)

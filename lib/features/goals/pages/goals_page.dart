@@ -46,6 +46,46 @@ class _GoalsPageState extends State<GoalsPage> {
     return false;
   }
 
+  Future<void> _addValue(Goal goal) async {
+    final controller = TextEditingController();
+    final value = await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Adicionar a ${goal.title}'),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Valor (R\$)'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(
+              double.tryParse(controller.text.replaceAll(',', '.')),
+            ),
+            child: const Text('Adicionar'),
+          ),
+        ],
+      ),
+    );
+    if (value == null || value <= 0 || !mounted) return;
+    try {
+      await context.read<FinanceProvider>().addToGoal(goal.id, value);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Valor adicionado à meta!')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro ao adicionar o valor.')),
+      );
+    }
+  }
+
   Future<void> _confirmDelete(Goal goal) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -114,6 +154,7 @@ class _GoalsPageState extends State<GoalsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'new-goal',
         onPressed: () => showGoalForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Nova Meta'),
@@ -195,6 +236,7 @@ class _GoalsPageState extends State<GoalsPage> {
                     goal: goal,
                     onEdit: () => showGoalForm(context, goal: goal),
                     onDelete: () => _confirmDelete(goal),
+                    onAdd: () => _addValue(goal),
                   ),
                   const SizedBox(height: 12),
                 ],

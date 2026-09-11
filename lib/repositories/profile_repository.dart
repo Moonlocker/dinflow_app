@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile.dart';
@@ -31,6 +33,25 @@ class ProfileRepository {
 
   Future<void> updateProfile(String userId, Map<String, dynamic> values) {
     return _client.from('profiles').update(values).eq('id', userId);
+  }
+
+  /// Envia o avatar para o bucket `avatars` e devolve a URL pública.
+  Future<String> uploadAvatar({
+    required String userId,
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final path =
+        '$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    await _client.storage.from('avatars').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: 'image/$extension',
+            upsert: true,
+          ),
+        );
+    return _client.storage.from('avatars').getPublicUrl(path);
   }
 
   /// Fallback quando a RPC `create_profile_for_user` falha.

@@ -10,11 +10,13 @@ class GoalCard extends StatelessWidget {
     required this.goal,
     required this.onEdit,
     required this.onDelete,
+    this.onAdd,
   });
 
   final Goal goal;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +126,17 @@ class GoalCard extends StatelessWidget {
               'Vencimento: ${formatDateOnly(goal.dueDate!.toIso8601String())}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          if (onAdd != null && goal.type != 'category_budget' && !goal.isCompleted) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Adicionar valor'),
               ),
             ),
           ],

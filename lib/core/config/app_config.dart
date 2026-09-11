@@ -21,6 +21,16 @@ class AppConfig {
   static const String authStorageKey = 'dinflow-auth-token';
   static const String supportEmail = 'contato@dinflow.com.br';
 
+  /// URL pública do webapp (usada em links de indicação/afiliados).
+  static const String webAppUrl = String.fromEnvironment(
+    'WEB_APP_URL',
+    defaultValue: 'https://dinflow.com.br',
+  );
+
   static const String avatarsBucket = 'avatars';
   static const String logosBucket = 'logos';
+
+  /// Deep link usado no retorno do OAuth (Google/Apple).
+  /// Deve estar cadastrado em Supabase Auth > URL Configuration.
+  static const String oauthRedirectUrl = 'io.dinflow.app://login-callback';
 }

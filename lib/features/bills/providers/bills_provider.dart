@@ -1,5 +1,9 @@
-import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../../core/realtime/realtime_utils.dart';
 import '../../../models/bill.dart';
 import '../../../repositories/bills_repository.dart';
 import '../../../repositories/payments_repository.dart';
@@ -21,6 +25,9 @@ class BillsProvider extends ChangeNotifier {
   DateTime _currentDate = DateTime.now();
   bool _loading = false;
   String? _error;
+  RealtimeChannel? _channel;
+  String? _subscribedUserId;
+  Timer? _debounce;
 
   List<Bill> get bills => _allBills;
   List<BillPayment> get payments => _payments;
@@ -62,12 +69,58 @@ class BillsProvider extends ChangeNotifier {
 
     _loading = false;
     notifyListeners();
+    _subscribe(userId);
   }
 
   Future<void> reload() async {
     final userId = _userId;
     if (userId == null) return;
     await load(userId, force: true);
+  }
+
+  /// Assina mudanças em contas e pagamentos do usuário.
+  void _subscribe(String userId) {
+    if (_subscribedUserId == userId && _channel != null) return;
+    _unsubscribe();
+    _subscribedUserId = userId;
+    final channel = Supabase.instance.client
+        .channel(realtimeChannelName('bills', userId));
+    for (final table in ['bill_reminders', 'bill_payments']) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        filter: PostgresChangeFilter(
+          type: PostgresChangeFilterType.eq,
+          column: 'user_id',
+          value: userId,
+        ),
+        callback: (_) => _scheduleReload(),
+      );
+    }
+    channel.subscribe();
+    _channel = channel;
+  }
+
+  void _scheduleReload() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      final userId = _userId;
+      if (userId != null) load(userId, force: true);
+    });
+  }
+
+  void _unsubscribe() {
+    _channel?.unsubscribe();
+    _channel = null;
+    _subscribedUserId = null;
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _unsubscribe();
+    super.dispose();
   }
 
   Future<void> nextMonth() async {
@@ -117,6 +170,16 @@ class BillsProvider extends ChangeNotifier {
       monthYear: currentMonthYear,
       amount: amount,
     );
+    await _reloadPayments();
+  }
+
+  /// Desfaz o pagamento do mês atual para a conta informada.
+  Future<void> unmarkAsPaid(String billId) async {
+    final userId = _userId;
+    if (userId == null) throw StateError('Usuário não autenticado');
+    final payment = paymentFor(billId);
+    if (payment == null) return;
+    await _paymentsRepo.unmarkPayment(id: payment.id, userId: userId);
     await _reloadPayments();
   }
 

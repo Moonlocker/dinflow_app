@@ -34,6 +34,8 @@ class _EducationPageState extends State<EducationPage> {
       );
       return;
     }
+    final userId = context.read<AuthProvider>().user?.id;
+    context.read<EducationProvider>().registerClick(item, userId);
     final uri = Uri.tryParse(link);
     if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;

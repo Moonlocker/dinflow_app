@@ -6,9 +6,13 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/auth/pages/login_page.dart';
 import 'features/auth/providers/auth_provider.dart';
+import 'features/authors/providers/author_provider.dart';
 import 'features/bills/providers/bills_provider.dart';
 import 'features/education/providers/education_provider.dart';
 import 'features/finance/providers/finance_provider.dart';
+import 'features/impersonation/providers/impersonation_provider.dart';
+import 'features/notifications/providers/notifications_provider.dart';
+import 'features/page_visibility/providers/page_visibility_provider.dart';
 import 'features/shell/app_shell.dart';
 import 'widgets/brand_logo.dart';
 
@@ -25,6 +29,10 @@ class DinFlowApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => FinanceProvider()),
         ChangeNotifierProvider(create: (_) => BillsProvider()),
         ChangeNotifierProvider(create: (_) => EducationProvider()),
+        ChangeNotifierProvider(create: (_) => PageVisibilityProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => AuthorProvider()),
+        ChangeNotifierProvider(create: (_) => ImpersonationProvider()),
       ],
       child: Consumer<ThemeController>(
         builder: (context, themeController, _) {

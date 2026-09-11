@@ -29,6 +29,17 @@ class AuthRepository {
 
   Future<void> signOut() => _client.auth.signOut();
 
+  Future<bool> signInWithOAuth(
+    OAuthProvider provider, {
+    required String redirectTo,
+  }) {
+    return _client.auth.signInWithOAuth(
+      provider,
+      redirectTo: redirectTo,
+      authScreenLaunchMode: LaunchMode.externalApplication,
+    );
+  }
+
   Future<void> updatePassword(String newPassword) async {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }

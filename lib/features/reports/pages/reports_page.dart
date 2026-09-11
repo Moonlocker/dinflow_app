@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../dashboard/widgets/category_breakdown_card.dart';
 import '../../dashboard/widgets/summary_card.dart';
 import '../../finance/providers/finance_provider.dart';
+import '../services/report_exporter.dart';
 
 enum _PeriodType { last6, year, specific }
 
@@ -35,6 +37,7 @@ class _ReportsPageState extends State<ReportsPage> {
   _PeriodType _periodType = _PeriodType.last6;
   int? _year;
   DateTimeRange? _range;
+  bool _exporting = false;
 
   static const _monthNames = [
     'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
@@ -139,6 +142,52 @@ class _ReportsPageState extends State<ReportsPage> {
     if (picked != null) setState(() => _range = picked);
   }
 
+  String _periodLabel(FinanceProvider finance) {
+    switch (_periodType) {
+      case _PeriodType.last6:
+        return 'Últimos 6 meses';
+      case _PeriodType.year:
+        return 'Ano ${_year ?? finance.currentDate.year}';
+      case _PeriodType.specific:
+        if (_range == null) return 'Período';
+        return '${formatDateOnly(_range!.start.toIso8601String())} - '
+            '${formatDateOnly(_range!.end.toIso8601String())}';
+    }
+  }
+
+  Future<void> _export({required bool pdf}) async {
+    final finance = context.read<FinanceProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final filtered = _filtered(finance);
+    final income =
+        filtered.where((t) => t.isIncome).fold(0.0, (sum, t) => sum + t.amount);
+    final expense =
+        filtered.where((t) => t.isExpense).fold(0.0, (sum, t) => sum + t.amount);
+
+    final data = ReportExportData(
+      periodLabel: _periodLabel(finance),
+      transactions: filtered,
+      categories: finance.categories,
+      income: income,
+      expense: expense,
+    );
+
+    setState(() => _exporting = true);
+    try {
+      if (pdf) {
+        await ReportExporter.exportPdf(data);
+      } else {
+        await ReportExporter.exportExcel(data);
+      }
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Não foi possível exportar o relatório.')),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -172,6 +221,26 @@ class _ReportsPageState extends State<ReportsPage> {
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _exporting ? null : () => _export(pdf: true),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                label: const Text('PDF'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _exporting ? null : () => _export(pdf: false),
+                icon: const Icon(Icons.table_chart_outlined, size: 18),
+                label: const Text('Excel'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         SingleChildScrollView(
@@ -266,6 +335,25 @@ class _ReportsPageState extends State<ReportsPage> {
           ),
         ),
         const SizedBox(height: 16),
+        AppCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Saldo Acumulado',
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              if (series.isEmpty || series.every((p) => p.income == 0 && p.expense == 0))
+                const EmptyState(icon: Icons.show_chart, message: 'Sem dados no período.')
+              else
+                SizedBox(height: 180, child: _BalanceAreaChart(points: series)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ComparisonTable(points: series),
+        const SizedBox(height: 16),
         CategoryBreakdownCard(
           title: 'Saídas por Categoria',
           icon: Icons.pie_chart_outline,
@@ -283,6 +371,12 @@ class _ReportsPageState extends State<ReportsPage> {
         ),
         const SizedBox(height: 16),
         _InsightsCard(income: income, expense: expense, transactionCount: filtered.length),
+        const SizedBox(height: 16),
+        _HealthCard(
+          income: income,
+          expense: expense,
+          transactionCount: filtered.length,
+        ),
       ],
     );
   }
@@ -413,6 +507,252 @@ class _InsightsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthCard extends StatelessWidget {
+  const _HealthCard({
+    required this.income,
+    required this.expense,
+    required this.transactionCount,
+  });
+
+  final double income;
+  final double expense;
+  final int transactionCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final score = _score();
+    final color = score == null
+        ? theme.colorScheme.onSurfaceVariant
+        : score >= 8
+            ? const Color(0xFF10B981)
+            : score >= 5
+                ? const Color(0xFFF59E0B)
+                : const Color(0xFFEF4444);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Saúde Financeira',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          if (score == null)
+            Text(
+              'Registre ao menos 5 transações no período para calcular seu score.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Text(
+                  '$score',
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  '/10',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: score / 10,
+                minHeight: 8,
+                backgroundColor: theme.colorScheme.outline,
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(_message(score), style: theme.textTheme.bodyMedium),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int? _score() {
+    if (transactionCount < 5) return null;
+    final savingsRate = income > 0
+        ? (income - expense) / income
+        : (expense > 0 ? -1.0 : 0.0);
+    final base = 5 + (savingsRate * 10);
+    return base.clamp(1, 10).round();
+  }
+
+  String _message(int score) {
+    if (score >= 8) {
+      return 'Excelente! Sua saúde financeira está muito boa. Continue assim.';
+    }
+    if (score >= 5) {
+      return 'Sua saúde financeira é razoável. Busque poupar pelo menos 20% da renda.';
+    }
+    return 'Atenção: seus gastos estão elevados em relação à renda. Revise o orçamento.';
+  }
+}
+
+class _BalanceAreaChart extends StatelessWidget {
+  const _BalanceAreaChart({required this.points});
+
+  final List<_MonthlyPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    var running = 0.0;
+    final spots = <FlSpot>[];
+    for (var i = 0; i < points.length; i++) {
+      running += points[i].income - points[i].expense;
+      spots.add(FlSpot(i.toDouble(), running));
+    }
+    final minValue = spots.map((s) => s.y).fold<double>(0, (m, v) => v < m ? v : m);
+    final maxValue = spots.map((s) => s.y).fold<double>(0, (m, v) => v > m ? v : m);
+    final range = (maxValue - minValue).abs() < 1 ? 1.0 : (maxValue - minValue);
+
+    return LineChart(
+      LineChartData(
+        minY: minValue - range * 0.1,
+        maxY: maxValue + range * 0.1,
+        gridData: const FlGridData(show: false),
+        borderData: FlBorderData(show: false),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 24,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index < 0 || index >= points.length) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    points[index].label,
+                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: theme.colorScheme.primary,
+            barWidth: 3,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: theme.colorScheme.primary.withValues(alpha: 0.15),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComparisonTable extends StatelessWidget {
+  const _ComparisonTable({required this.points});
+
+  final List<_MonthlyPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (points.length < 2) return const SizedBox.shrink();
+
+    final headerStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Comparação Mensal',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(flex: 2, child: Text('Mês', style: headerStyle)),
+              Expanded(child: Text('Entradas', style: headerStyle, textAlign: TextAlign.right)),
+              Expanded(child: Text('Saídas', style: headerStyle, textAlign: TextAlign.right)),
+              Expanded(child: Text('Variação', style: headerStyle, textAlign: TextAlign.right)),
+            ],
+          ),
+          const Divider(),
+          for (var i = 1; i < points.length; i++) ...[
+            Builder(
+              builder: (context) {
+                final previous = points[i - 1].expense;
+                final current = points[i].expense;
+                final variation = previous == 0
+                    ? (current > 0 ? 100.0 : 0.0)
+                    : (current - previous) / previous * 100;
+                final color = variation > 0
+                    ? const Color(0xFFEF4444)
+                    : variation < 0
+                        ? const Color(0xFF10B981)
+                        : theme.colorScheme.onSurfaceVariant;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: Text(points[i].label)),
+                      Expanded(
+                        child: Text(
+                          formatCurrency(points[i].income),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(color: Color(0xFF10B981)),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          formatCurrency(points[i].expense),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(color: Color(0xFFEF4444)),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${variation >= 0 ? '+' : ''}${variation.toStringAsFixed(0)}%',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ],
         ],
       ),

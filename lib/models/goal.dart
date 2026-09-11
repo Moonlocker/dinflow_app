@@ -30,7 +30,11 @@ class Goal {
   final bool completed;
   final String? status;
 
-  bool get isCompleted => completed || status == 'completed';
+  bool get isCompleted {
+    if (type == 'category_budget') return false;
+    if (completed || status == 'completed') return true;
+    return targetAmount > 0 && currentAmount >= targetAmount;
+  }
 
   double get progress {
     if (targetAmount <= 0) return 0;

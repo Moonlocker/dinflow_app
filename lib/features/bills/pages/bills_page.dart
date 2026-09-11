@@ -5,6 +5,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../models/bill.dart';
 import '../../../widgets/app_card.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../authors/providers/author_provider.dart';
 import '../../dashboard/widgets/month_navigator.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../providers/bills_provider.dart';
@@ -116,7 +117,8 @@ class _BillsPageState extends State<BillsPage> {
     if (!mounted) return;
     final billsProvider = context.read<BillsProvider>();
     final finance = context.read<FinanceProvider>();
-    final authorNumber = context.read<AuthProvider>().profile?.whatsapp;
+    final authorNumber = context.read<AuthorProvider>().effectiveWhatsapp ??
+        context.read<AuthProvider>().profile?.whatsapp;
 
     try {
       await billsProvider.markAsPaid(billId: bill.id, amount: amount);
@@ -139,6 +141,21 @@ class _BillsPageState extends State<BillsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erro ao marcar a conta como paga.')),
+      );
+    }
+  }
+
+  Future<void> _unmarkAsPaid(Bill bill) async {
+    try {
+      await context.read<BillsProvider>().unmarkAsPaid(bill.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pagamento desfeito.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro ao desfazer o pagamento.')),
       );
     }
   }
@@ -189,6 +206,7 @@ class _BillsPageState extends State<BillsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'new-bill',
         onPressed: () => showBillForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Nova Conta'),
@@ -238,6 +256,7 @@ class _BillsPageState extends State<BillsPage> {
                     dueLabel: badge.label,
                     dueColor: badge.color,
                     onPay: () => _markAsPaid(bill),
+                    onUnpay: () => _unmarkAsPaid(bill),
                     onEdit: () => showBillForm(context, bill: bill),
                     onDelete: () => _confirmDelete(bill),
                   );

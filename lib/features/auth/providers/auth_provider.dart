@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../models/global_settings.dart';
 import '../../../models/profile.dart';
 import '../../../models/subscription.dart';
@@ -74,10 +75,36 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      final isNewUser = _user?.id != session.user.id;
       _user = session.user;
+      if (isNewUser || _profile == null) {
+        await _ensureProfile(session.user);
+        await _loadProfileAndSubscription(session.user.id);
+      }
       _status = AuthStatus.authenticated;
       notifyListeners();
     });
+  }
+
+  /// Login social (Google/Apple) via navegador e deep link.
+  Future<bool> signInWithOAuth(OAuthProvider provider) async {
+    _busy = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _auth.signInWithOAuth(
+        provider,
+        redirectTo: AppConfig.oauthRedirectUrl,
+      );
+      _busy = false;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      _errorMessage = 'Não foi possível iniciar o login social.';
+      _busy = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> login(String email, String password) async {
@@ -174,6 +201,18 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Reautentica o usuário (usado para confirmar ações sensíveis).
+  Future<bool> verifyPassword(String password) async {
+    final email = _user?.email;
+    if (email == null) return false;
+    try {
+      await _auth.signInWithPassword(email: email, password: password);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> changePassword(String newPassword) async {
     _busy = true;
     _errorMessage = null;
@@ -195,6 +234,22 @@ class AuthProvider extends ChangeNotifier {
     final current = _user;
     if (current == null) return;
     await _profiles.updateProfile(current.id, values);
+    await refresh();
+  }
+
+  /// Envia um novo avatar e atualiza o perfil do usuário.
+  Future<void> uploadAvatar({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final current = _user;
+    if (current == null) return;
+    final url = await _profiles.uploadAvatar(
+      userId: current.id,
+      bytes: bytes,
+      extension: extension,
+    );
+    await _profiles.updateProfile(current.id, {'avatar_url': url});
     await refresh();
   }
 

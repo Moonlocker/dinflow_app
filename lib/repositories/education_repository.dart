@@ -16,4 +16,15 @@ class EducationRepository {
         .map((row) => EducationContent.fromMap(row as Map<String, dynamic>))
         .toList();
   }
+
+  /// Registra um clique no conteúdo (tabela `education_clicks`).
+  Future<void> registerClick({
+    required String contentId,
+    String? userId,
+  }) async {
+    await _client.from('education_clicks').insert({
+      'education_content_id': contentId,
+      'user_id': ?userId,
+    });
+  }
 }

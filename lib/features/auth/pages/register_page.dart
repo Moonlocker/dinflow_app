@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 
 import '../../../widgets/app_card.dart';
 import '../../../widgets/brand_logo.dart';
@@ -83,11 +84,22 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Future<void> _social(OAuthProvider provider) async {
+    final auth = context.read<AuthProvider>();
+    final ok = await auth.signInWithOAuth(provider);
+    if (!mounted) return;
+    if (!ok && auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+      auth.clearError();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final busy = context.watch<AuthProvider>().busy;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Criar conta')),
       body: SafeArea(
@@ -218,6 +230,29 @@ class _RegisterPageState extends State<RegisterPage> {
                                     ),
                                   )
                                 : const Text('Criar conta'),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              const Expanded(child: Divider()),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Text('ou', style: theme.textTheme.bodySmall),
+                              ),
+                              const Expanded(child: Divider()),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : () => _social(OAuthProvider.google),
+                            icon: const Icon(Icons.g_mobiledata, size: 24),
+                            label: const Text('Continuar com Google'),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: busy ? null : () => _social(OAuthProvider.apple),
+                            icon: const Icon(Icons.apple),
+                            label: const Text('Continuar com Apple'),
                           ),
                         ],
                       ),

@@ -5,6 +5,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../models/category.dart';
 import '../../../models/transaction.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../authors/providers/author_provider.dart';
 import '../../finance/providers/finance_provider.dart';
 
 Future<void> showTransactionForm(BuildContext context, {Transaction? transaction}) {
@@ -73,7 +74,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     if (!_formKey.currentState!.validate()) return;
 
     final finance = context.read<FinanceProvider>();
-    final authorNumber = context.read<AuthProvider>().profile?.whatsapp;
+    final authorNumber = context.read<AuthorProvider>().effectiveWhatsapp ??
+        context.read<AuthProvider>().profile?.whatsapp;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;

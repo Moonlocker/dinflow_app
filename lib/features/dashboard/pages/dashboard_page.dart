@@ -3,10 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../authors/providers/author_provider.dart';
+import '../../bills/providers/bills_provider.dart';
+import '../../chat/pages/chat_page.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../../goals/widgets/goal_form_sheet.dart';
+import '../../impersonation/providers/impersonation_provider.dart';
 import '../../transactions/widgets/transaction_form_sheet.dart';
 import '../widgets/active_goals_card.dart';
+import '../widgets/bills_summary_card.dart';
 import '../widgets/category_breakdown_card.dart';
 import '../widgets/month_navigator.dart';
 import '../widgets/quick_actions_card.dart';
@@ -15,10 +20,10 @@ import '../widgets/summary_card.dart';
 
 /// Dashboard do DinFlow — primeira tela funcional do aplicativo.
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key, this.onOpenTab});
+  const DashboardPage({super.key, this.onOpenPage});
 
-  /// Permite abrir outra aba da navegação inferior (Transações, Metas, etc.).
-  final ValueChanged<int>? onOpenTab;
+  /// Permite abrir outra página da navegação (Transações, Metas, etc.).
+  final ValueChanged<String>? onOpenPage;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -36,6 +41,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final userId = context.read<AuthProvider>().user?.id;
     if (userId != null) {
       context.read<FinanceProvider>().load(userId);
+      context.read<BillsProvider>().load(userId);
     }
   }
 
@@ -49,7 +55,8 @@ class _DashboardPageState extends State<DashboardPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final greetingName = auth.profile?.firstName ??
+    final greetingName = context.watch<ImpersonationProvider>().impersonatedProfile?.firstName ??
+        auth.profile?.firstName ??
         (auth.user?.email?.split('@').first ?? '');
 
     final incomeComparison =
@@ -85,6 +92,14 @@ class _DashboardPageState extends State<DashboardPage> {
             onPrevious: dashboard.previousMonth,
             onNext: dashboard.nextMonth,
           ),
+          if (context.watch<AuthorProvider>().hasMultiple) ...[
+            const SizedBox(height: 12),
+            _AuthorFilter(
+              authors: context.watch<AuthorProvider>(),
+              current: dashboard.authorFilter,
+              onChanged: dashboard.setAuthorFilter,
+            ),
+          ],
           const SizedBox(height: 16),
           GridView(
             shrinkWrap: true,
@@ -138,12 +153,18 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 16),
           RecentTransactionsCard(
             transactions: dashboard.recentTransactions,
-            onViewAll: () => widget.onOpenTab?.call(1),
+            onViewAll: () => widget.onOpenPage?.call('transactions'),
           ),
           const SizedBox(height: 16),
           ActiveGoalsCard(
             goals: dashboard.activeGoals,
-            onViewAll: () => widget.onOpenTab?.call(3),
+            onViewAll: () => widget.onOpenPage?.call('goals'),
+          ),
+          const SizedBox(height: 16),
+          BillsSummaryCard(
+            bills: context.watch<BillsProvider>().bills,
+            isPaid: context.read<BillsProvider>().isPaid,
+            onViewAll: () => widget.onOpenPage?.call('bills'),
           ),
           const SizedBox(height: 16),
           QuickActionsCard(
@@ -161,12 +182,14 @@ class _DashboardPageState extends State<DashboardPage> {
               QuickAction(
                 label: 'Relatórios',
                 icon: Icons.bar_chart,
-                onTap: () => widget.onOpenTab?.call(2),
+                onTap: () => widget.onOpenPage?.call('reports'),
               ),
               QuickAction(
                 label: 'Chat IA',
                 icon: Icons.smart_toy_outlined,
-                onTap: () => _showComingSoon('Chat IA'),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ChatPage()),
+                ),
               ),
             ],
           ),
@@ -192,10 +215,50 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   String _currency(double value) => formatCurrency(value);
+}
 
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature estará disponível em breve no aplicativo.')),
+class _AuthorFilter extends StatelessWidget {
+  const _AuthorFilter({
+    required this.authors,
+    required this.current,
+    required this.onChanged,
+  });
+
+  final AuthorProvider authors;
+  final String? current;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String?>(
+      initialValue: current,
+      decoration: const InputDecoration(
+        labelText: 'Autor',
+        prefixIcon: Icon(Icons.person_outline),
+      ),
+      items: [
+        const DropdownMenuItem(value: null, child: Text('Todos')),
+        for (final author in authors.authors)
+          DropdownMenuItem(
+            value: author.whatsapp,
+            child: Text(
+              author.isMain ? '${author.name} (principal)' : author.name,
+            ),
+          ),
+      ],
+      onChanged: (value) {
+        onChanged(value);
+        if (value == null) {
+          authors.select(null);
+        } else {
+          for (final author in authors.authors) {
+            if (author.whatsapp == value) {
+              authors.select(author);
+              break;
+            }
+          }
+        }
+      },
     );
   }
 }
