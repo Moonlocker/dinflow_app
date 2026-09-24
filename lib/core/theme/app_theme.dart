@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
@@ -7,6 +6,7 @@ import 'app_colors.dart';
 class AppTheme {
   const AppTheme._();
 
+  static const String fontFamily = 'Inter';
   static const double radius = 16;
 
   static ThemeData get light => _build(AppColors.lightScheme, AppColors.lightBackground);
@@ -21,7 +21,8 @@ class AppTheme {
     );
 
     // Tipografia limpa e moderna (referências usam Inter/SF Pro).
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
+    final textTheme = base.textTheme.apply(
+      fontFamily: fontFamily,
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
     );
