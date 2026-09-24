@@ -31,7 +31,7 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Seu dispositivo não possui biometria disponível ou configurada.',
+                'Não foi possível ativar a biometria. Confirme a biometria no dispositivo e tente novamente.',
               ),
             ),
           );

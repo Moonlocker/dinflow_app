@@ -29,6 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _whatsappController = TextEditingController();
+  final _currentPasswordController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _savingProfile = false;
@@ -69,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _nameController.dispose();
     _emailController.dispose();
     _whatsappController.dispose();
+    _currentPasswordController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -187,24 +189,43 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _changePassword() async {
-    if (_passwordController.text.length < 6) {
+    final auth = context.read<AuthProvider>();
+    final currentPassword = _currentPasswordController.text;
+    if (currentPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A senha deve ter ao menos 6 caracteres.')),
+        const SnackBar(content: Text('Informe sua senha atual.')),
+      );
+      return;
+    }
+    setState(() => _savingPassword = true);
+    final reauthed = await auth.verifyPassword(currentPassword);
+    if (!mounted) return;
+    if (!reauthed) {
+      setState(() => _savingPassword = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Senha atual incorreta.')),
+      );
+      return;
+    }
+    if (_passwordController.text.length < 6) {
+      setState(() => _savingPassword = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A nova senha deve ter ao menos 6 caracteres.')),
       );
       return;
     }
     if (_passwordController.text != _confirmPasswordController.text) {
+      setState(() => _savingPassword = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('As senhas não coincidem.')),
       );
       return;
     }
-    setState(() => _savingPassword = true);
-    final auth = context.read<AuthProvider>();
     final ok = await auth.changePassword(_passwordController.text);
     if (!mounted) return;
     setState(() => _savingPassword = false);
     if (ok) {
+      _currentPasswordController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -644,7 +665,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         const SizedBox(height: 16),
-        if (!isImpersonating)
+        if (!isImpersonating && auth.hasPasswordAuth)
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,6 +673,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 Text(
                   'Alterar Senha',
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Senha atual'),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -679,6 +706,25 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         ),
+        if (!isImpersonating && !auth.hasPasswordAuth) ...[
+          const SizedBox(height: 16),
+          AppCard(
+            child: Row(
+              children: [
+                Icon(Icons.login, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Conta vinculada a Google/Apple. Para alterar a senha, utilize o fluxo de "Esqueci minha senha" no login.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         AppCard(
           child: Column(

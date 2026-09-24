@@ -45,7 +45,7 @@ class MonthSelector extends StatelessWidget {
               children: [
                 Flexible(child: _SideLabel(text: formatMonth(previous))),
                 const SizedBox(width: 8),
-                _SelectedMonth(text: formatMonth(date)),
+                Flexible(child: _SelectedMonth(text: formatMonth(date))),
                 const SizedBox(width: 8),
                 Flexible(child: _SideLabel(text: formatMonth(next))),
               ],
@@ -75,7 +75,6 @@ class _SideLabel extends StatelessWidget {
       child: Text(
         text,
         maxLines: 1,
-        overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -99,7 +98,7 @@ class _SelectedMonth extends StatelessWidget {
         ? AppColors.onMint
         : theme.colorScheme.onPrimary;
 
-    return Container(
+    final pill = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: fill,
@@ -111,7 +110,6 @@ class _SelectedMonth extends StatelessWidget {
           Text(
             text,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelLarge?.copyWith(
               color: label,
               fontWeight: FontWeight.w700,
@@ -121,6 +119,13 @@ class _SelectedMonth extends StatelessWidget {
           Icon(Icons.arrow_drop_down, size: 16, color: label),
         ],
       ),
+    );
+
+    // `FittedBox` + `Flexible` no pai: se faltar espaço (telas estreitas ou
+    // taxa de fonte maior), a cápsula encolhe em vez de cortar o mês.
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: pill,
     );
   }
 }

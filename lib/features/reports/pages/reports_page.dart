@@ -520,6 +520,7 @@ class _ReportDonutCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -574,10 +575,16 @@ class _ReportDonutCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        formatCurrency(total),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            formatCurrency(total),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -608,10 +615,16 @@ class _ReportDonutCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    '${isIncome ? '+' : '-'} ${formatCurrency(total).replaceFirst(r'R$', '').trim()}',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${isIncome ? '+' : '-'} ${formatCurrency(total).replaceFirst(r'R$', '').trim()}',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -694,11 +707,18 @@ class _DonutCategoryRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            '${isIncome ? '+' : '-'} ${formatCurrency(total.total).replaceFirst(r'R$', '').trim()}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: valueColor,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${isIncome ? '+' : '-'} ${formatCurrency(total.total).replaceFirst(r'R$', '').trim()}',
+                maxLines: 1,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: valueColor,
+                ),
+              ),
             ),
           ),
         ],
@@ -815,10 +835,14 @@ class _MonthlyBars extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    point.label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      point.label,
+                      maxLines: 1,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -1041,16 +1065,31 @@ class _BalanceAreaChart extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 24,
+              // Em intervalos maiores, mostra apenas alguns meses para os
+              // rótulos não sobreporem uns aos outros.
+              interval: points.length > 6
+                  ? ((points.length / 3).ceil()).toDouble()
+                  : 1,
               getTitlesWidget: (value, meta) {
-                final index = value.toInt();
+                final index = value.round();
                 if (index < 0 || index >= points.length) {
+                  return const SizedBox.shrink();
+                }
+                // Sempre exibe o primeiro e o último ponto (início/fim).
+                if (index != 0 &&
+                    index != points.length - 1 &&
+                    value != value.roundToDouble()) {
                   return const SizedBox.shrink();
                 }
                 return Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    points[index].label,
-                    style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      points[index].label,
+                      maxLines: 1,
+                      style: theme.textTheme.labelSmall?.copyWith(fontSize: 10),
+                    ),
                   ),
                 );
               },
@@ -1126,26 +1165,38 @@ class _ComparisonTable extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Expanded(flex: 2, child: Text(points[i].label)),
+                      Expanded(flex: 2, child: Text(points[i].label, maxLines: 1, overflow: TextOverflow.ellipsis)),
                       Expanded(
-                        child: Text(
-                          formatCurrency(points[i].income),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(color: Color(0xFF10B981)),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            formatCurrency(points[i].income),
+                            maxLines: 1,
+                            style: const TextStyle(color: Color(0xFF10B981)),
+                          ),
                         ),
                       ),
                       Expanded(
-                        child: Text(
-                          formatCurrency(points[i].expense),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(color: Color(0xFFEF4444)),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            formatCurrency(points[i].expense),
+                            maxLines: 1,
+                            style: const TextStyle(color: Color(0xFFEF4444)),
+                          ),
                         ),
                       ),
                       Expanded(
-                        child: Text(
-                          '${variation >= 0 ? '+' : ''}${variation.toStringAsFixed(0)}%',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${variation >= 0 ? '+' : ''}${variation.toStringAsFixed(0)}%',
+                            maxLines: 1,
+                            style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                          ),
                         ),
                       ),
                     ],

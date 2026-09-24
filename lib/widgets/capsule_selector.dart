@@ -49,17 +49,19 @@ class CapsuleSelector extends StatelessWidget {
                     color: i == selectedIndex ? selectedFill : Colors.transparent,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    options[i],
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: i == selectedIndex
-                          ? selectedLabel
-                          : theme.colorScheme.onSurfaceVariant,
-                      fontWeight:
-                          i == selectedIndex ? FontWeight.w700 : FontWeight.w500,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      options[i],
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: i == selectedIndex
+                            ? selectedLabel
+                            : theme.colorScheme.onSurfaceVariant,
+                        fontWeight:
+                            i == selectedIndex ? FontWeight.w700 : FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),

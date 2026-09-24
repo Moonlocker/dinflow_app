@@ -301,18 +301,22 @@ class _TrendChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          text,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ),
       ),
     );
@@ -370,7 +374,15 @@ class _MonthSummaryCard extends StatelessWidget {
                   ),
                 ),
               ),
-              ?balanceTrend,
+              if (balanceTrend != null) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: balanceTrend,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -442,7 +454,8 @@ class _CategoryLine extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(label, style: theme.textTheme.bodyMedium),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium),
         ),
         if (hasComparison) ...[
           Container(
@@ -462,9 +475,18 @@ class _CategoryLine extends StatelessWidget {
           ),
           const SizedBox(width: 10),
         ],
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -684,7 +706,6 @@ class _CategoryRingCard extends StatelessWidget {
             child: Text(
               hidden ? '••••••' : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: valueColor,

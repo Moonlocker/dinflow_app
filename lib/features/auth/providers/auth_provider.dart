@@ -66,6 +66,18 @@ class AuthProvider extends ChangeNotifier {
   /// Se uma sessão restaurada ainda aguarda a confirmação biométrica.
   bool get biometricPending => _biometricPending;
 
+  /// Se a conta possui senha (email) e pode alterá-la pelo app.
+  ///
+  /// Contas criadas exclusivamente por OAuth (Google/Apple) não possuem senha,
+  /// então o card de troca de senha fica oculto nessas contas.
+  bool get hasPasswordAuth {
+    final metadata = _user?.appMetadata;
+    final providers = (metadata?['providers'] as List?)?.cast<String>();
+    if (providers != null && providers.isNotEmpty) return providers.contains('email');
+    final provider = metadata?['provider'] as String?;
+    return provider == null || provider == 'email';
+  }
+
   String get displayName => _profile?.displayName ?? _user?.email ?? 'Usuário';
 
   Future<void> init() async {
@@ -297,10 +309,16 @@ class AuthProvider extends ChangeNotifier {
 
   /// Habilita a exigência de biometria ao reabrir o app com sessão salva.
   ///
-  /// Retorna `false` se o dispositivo não oferecer biometria disponível.
+  /// Antes de ativar, pede uma confirmação biométrica real para garantir que o
+  /// sensor do aparelho funciona. Retorna `false` se o dispositivo não oferecer
+  /// biometria disponível ou se a confirmação falhar/cancelar.
   Future<bool> enableBiometric() async {
     final supported = await _biometrics.isSupported();
     if (!supported) return false;
+    final confirmed = await _biometrics.authenticate(
+      reason: 'Confirme sua identidade para ativar o desbloqueio biométrico',
+    );
+    if (!confirmed) return false;
     _biometricEnabled = true;
     await _saveBiometricPreference(true);
     notifyListeners();

@@ -33,10 +33,12 @@ class AuthRepository {
     OAuthProvider provider, {
     required String redirectTo,
   }) {
+    // `inAppWebView` mantém o fluxo OAuth (Google/Apple) dentro do app. O retorno
+    // acontece via deep link `io.dinflow.app://login-callback` (ver AndroidManifest/Info.plist).
     return _client.auth.signInWithOAuth(
       provider,
       redirectTo: redirectTo,
-      authScreenLaunchMode: LaunchMode.externalApplication,
+      authScreenLaunchMode: LaunchMode.inAppWebView,
     );
   }
 
