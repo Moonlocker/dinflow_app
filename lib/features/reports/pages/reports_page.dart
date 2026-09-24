@@ -2,17 +2,23 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/category_icons.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../models/category.dart';
 import '../../../models/transaction.dart';
 import '../../../widgets/app_card.dart';
+import '../../../widgets/capsule_selector.dart';
 import '../../../widgets/empty_state.dart';
+import '../../../widgets/month_selector.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../dashboard/widgets/category_breakdown_card.dart';
 import '../../dashboard/widgets/summary_card.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../services/report_exporter.dart';
 
 enum _PeriodType { last6, year, specific }
+
+enum _ReportTab { expenses, income }
 
 class _MonthlyPoint {
   const _MonthlyPoint({
@@ -34,7 +40,18 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> {
+  static const _palette = [
+    Color(0xFFEF4444),
+    Color(0xFFF59E0B),
+    Color(0xFF8B5CF6),
+    Color(0xFF10B981),
+    Color(0xFF3B82F6),
+    Color(0xFFEC4899),
+    Color(0xFF14B8A6),
+  ];
+
   _PeriodType _periodType = _PeriodType.last6;
+  _ReportTab _reportTab = _ReportTab.expenses;
   int? _year;
   DateTimeRange? _range;
   bool _exporting = false;
@@ -198,9 +215,9 @@ class _ReportsPageState extends State<ReportsPage> {
     }
 
     final filtered = _filtered(finance);
-    final income = filtered.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
-    final expense = filtered.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
-    final balance = income - expense;
+    final periodIncome = filtered.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
+    final periodExpense = filtered.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
+    final periodBalance = periodIncome - periodExpense;
     final series = _monthlySeries(finance, filtered);
     final years = finance.transactions
         .map((t) => t.date.year)
@@ -208,28 +225,43 @@ class _ReportsPageState extends State<ReportsPage> {
         .toList()
       ..sort((a, b) => b.compareTo(a));
 
+    final tabType = _reportTab == _ReportTab.expenses ? 'expense' : 'income';
+    final tabTotals = _categoryTotals(finance, filtered, tabType);
+    final tabTotal = tabTotals.fold<double>(0, (sum, item) => sum + item.total);
+    final tabCount = filtered.where((t) => t.type == tabType).length;
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        Text(
-          'Relatórios',
-          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        MonthSelector(
+          date: finance.currentDate,
+          onPrevious: finance.previousMonth,
+          onNext: finance.nextMonth,
         ),
-        const SizedBox(height: 2),
-        Text(
-          'Análises e estatísticas das suas finanças',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        const SizedBox(height: 16),
+        _MonthBalanceCard(
+          currentMonth: finance.currentDate,
+          income: finance.monthlyIncome,
+          expenses: finance.monthlyExpenses,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        _ReportDonutCard(
+          tab: _reportTab,
+          onTabChanged: (index) =>
+              setState(() => _reportTab = index == 0 ? _ReportTab.expenses : _ReportTab.income),
+          totals: tabTotals,
+          total: tabTotal,
+          transactionCount: tabCount,
+          palette: _palette,
+        ),
+        const SizedBox(height: 18),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _exporting ? null : () => _export(pdf: true),
                 icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
-                label: const Text('PDF'),
+                label: const Text('Exportar PDF'),
               ),
             ),
             const SizedBox(width: 12),
@@ -237,64 +269,33 @@ class _ReportsPageState extends State<ReportsPage> {
               child: OutlinedButton.icon(
                 onPressed: _exporting ? null : () => _export(pdf: false),
                 icon: const Icon(Icons.table_chart_outlined, size: 18),
-                label: const Text('Excel'),
+                label: const Text('Exportar Excel'),
               ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              SegmentedButton<_PeriodType>(
-                segments: const [
-                  ButtonSegment(value: _PeriodType.last6, label: Text('6 meses')),
-                  ButtonSegment(value: _PeriodType.year, label: Text('Ano')),
-                  ButtonSegment(value: _PeriodType.specific, label: Text('Período')),
-                ],
-                selected: {_periodType},
-                onSelectionChanged: (value) async {
-                  setState(() => _periodType = value.first);
-                  if (_periodType == _PeriodType.specific && _range == null) {
-                    await _pickRange();
-                  }
-                },
-              ),
-            ],
-          ),
+        _PeriodPickerCard(
+          periodType: _periodType,
+          onPeriodChanged: (value) async {
+            setState(() => _periodType = value);
+            if (_periodType == _PeriodType.specific && _range == null) {
+              await _pickRange();
+            }
+          },
+          year: _year,
+          years: years,
+          onYearChanged: (value) => setState(() => _year = value),
+          range: _range,
+          onPickRange: _pickRange,
         ),
-        if (_periodType == _PeriodType.year) ...[
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: _year ?? (years.isNotEmpty ? years.first : DateTime.now().year),
-            decoration: const InputDecoration(labelText: 'Ano'),
-            items: [
-              for (final year in (years.isEmpty ? [DateTime.now().year] : years))
-                DropdownMenuItem(value: year, child: Text(year.toString())),
-            ],
-            onChanged: (value) => setState(() => _year = value),
-          ),
-        ],
-        if (_periodType == _PeriodType.specific) ...[
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _pickRange,
-            icon: const Icon(Icons.calendar_today_outlined, size: 18),
-            label: Text(
-              _range == null
-                  ? 'Selecionar período'
-                  : '${formatDateOnly(_range!.start.toIso8601String())} - ${formatDateOnly(_range!.end.toIso8601String())}',
-            ),
-          ),
-        ],
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: SummaryCard(
                 title: 'Entradas',
-                value: formatCurrency(income),
+                value: formatCurrency(periodIncome),
                 icon: Icons.trending_up,
                 accent: const Color(0xFF10B981),
               ),
@@ -303,7 +304,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: SummaryCard(
                 title: 'Saídas',
-                value: formatCurrency(expense),
+                value: formatCurrency(periodExpense),
                 icon: Icons.trending_down,
                 accent: const Color(0xFFEF4444),
               ),
@@ -313,9 +314,9 @@ class _ReportsPageState extends State<ReportsPage> {
         const SizedBox(height: 12),
         SummaryCard(
           title: 'Saldo do período',
-          value: formatCurrency(balance),
+          value: formatCurrency(periodBalance),
           icon: Icons.attach_money,
-          accent: balance >= 0 ? const Color(0xFF3B82F6) : const Color(0xFFF97316),
+          accent: periodBalance >= 0 ? const Color(0xFF3B82F6) : const Color(0xFFF97316),
         ),
         const SizedBox(height: 16),
         AppCard(
@@ -354,30 +355,429 @@ class _ReportsPageState extends State<ReportsPage> {
         const SizedBox(height: 16),
         _ComparisonTable(points: series),
         const SizedBox(height: 16),
-        CategoryBreakdownCard(
-          title: 'Saídas por Categoria',
-          icon: Icons.pie_chart_outline,
-          accent: const Color(0xFFEF4444),
-          totals: _categoryTotals(finance, filtered, 'expense'),
-          emptyMessage: 'Sem saídas no período',
+        _InsightsCard(
+          income: periodIncome,
+          expense: periodExpense,
+          transactionCount: filtered.length,
         ),
-        const SizedBox(height: 16),
-        CategoryBreakdownCard(
-          title: 'Entradas por Categoria',
-          icon: Icons.pie_chart_outline,
-          accent: const Color(0xFF10B981),
-          totals: _categoryTotals(finance, filtered, 'income'),
-          emptyMessage: 'Sem entradas no período',
-        ),
-        const SizedBox(height: 16),
-        _InsightsCard(income: income, expense: expense, transactionCount: filtered.length),
         const SizedBox(height: 16),
         _HealthCard(
-          income: income,
-          expense: expense,
+          income: periodIncome,
+          expense: periodExpense,
           transactionCount: filtered.length,
         ),
       ],
+    );
+  }
+}
+
+/// Card de saldo do mês com barras de progresso de receitas e despesas.
+class _MonthBalanceCard extends StatelessWidget {
+  const _MonthBalanceCard({
+    required this.currentMonth,
+    required this.income,
+    required this.expenses,
+  });
+
+  final DateTime currentMonth;
+  final double income;
+  final double expenses;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final mint = isDark ? AppColors.mint : const Color(0xFF10B981);
+    final max = income > expenses ? income : expenses;
+    final effectiveMax = max <= 0 ? 1.0 : max;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Saldo em ${formatMonth(currentMonth)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Text(
+                formatCurrency(income - expenses),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ProgressLine(
+            label: 'Receitas',
+            value: income,
+            ratio: income / effectiveMax,
+            color: mint,
+          ),
+          const SizedBox(height: 10),
+          _ProgressLine(
+            label: 'Despesas',
+            value: expenses,
+            ratio: expenses / effectiveMax,
+            color: const Color(0xFFEF4444),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressLine extends StatelessWidget {
+  const _ProgressLine({
+    required this.label,
+    required this.value,
+    required this.ratio,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final double ratio;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        SizedBox(
+          width: 68,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0, 1),
+              minHeight: 6,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              formatCurrency(value),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Card principal: gráfico de rosca + lista de categorias + rodapé.
+class _ReportDonutCard extends StatelessWidget {
+  const _ReportDonutCard({
+    required this.tab,
+    required this.onTabChanged,
+    required this.totals,
+    required this.total,
+    required this.transactionCount,
+    required this.palette,
+  });
+
+  final _ReportTab tab;
+  final ValueChanged<int> onTabChanged;
+  final List<CategoryTotal> totals;
+  final double total;
+  final int transactionCount;
+  final List<Color> palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isIncome = tab == _ReportTab.income;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 38,
+            child: CapsuleSelector(
+              options: const ['Despesas', 'Receitas'],
+              selectedIndex: tab == _ReportTab.expenses ? 0 : 1,
+              onChanged: onTabChanged,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (totals.isEmpty)
+            const EmptyState(
+              icon: Icons.pie_chart_outline,
+              message: 'Sem dados no período.',
+            )
+          else ...[
+            SizedBox(
+              height: 200,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      sectionsSpace: 3,
+                      centerSpaceRadius: 68,
+                      startDegreeOffset: -90,
+                      sections: [
+                        for (var i = 0; i < totals.length; i++)
+                          PieChartSectionData(
+                            value: totals[i].total,
+                            color: _colorFor(totals[i].category, i),
+                            radius: 56,
+                            showTitle: false,
+                          ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isIncome ? 'Receitas' : 'Despesas',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        formatCurrency(total),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            for (var i = 0; i < totals.length; i++) ...[
+              if (i > 0) Divider(height: 1, color: theme.colorScheme.outline),
+              _DonutCategoryRow(
+                total: totals[i],
+                color: _colorFor(totals[i].category, i),
+                percent: total <= 0 ? 0.0 : totals[i].total / total,
+                isIncome: isIncome,
+              ),
+            ],
+            const SizedBox(height: 4),
+            Divider(height: 1, color: theme.colorScheme.outline),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  Text(
+                    '$transactionCount ${transactionCount == 1 ? 'transação' : 'transações'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${isIncome ? '+' : '-'} ${formatCurrency(total).replaceFirst(r'R$', '').trim()}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _colorFor(Category category, int index) {
+    final parsed = category.parsedColor;
+    if (parsed != Colors.grey) return parsed;
+    return palette[index % palette.length];
+  }
+}
+
+class _DonutCategoryRow extends StatelessWidget {
+  const _DonutCategoryRow({
+    required this.total,
+    required this.color,
+    required this.percent,
+    required this.isIncome,
+  });
+
+  final CategoryTotal total;
+  final Color color;
+  final double percent;
+  final bool isIncome;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final valueColor = isIncome
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              categoryIconFor(total.category.icon),
+              size: 17,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              total.category.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '${(percent * 100).round()}%',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '${isIncome ? '+' : '-'} ${formatCurrency(total.total).replaceFirst(r'R$', '').trim()}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card com os controles de período (6 meses / ano / período).
+class _PeriodPickerCard extends StatelessWidget {
+  const _PeriodPickerCard({
+    required this.periodType,
+    required this.onPeriodChanged,
+    required this.year,
+    required this.years,
+    required this.onYearChanged,
+    required this.range,
+    required this.onPickRange,
+  });
+
+  final _PeriodType periodType;
+  final ValueChanged<_PeriodType> onPeriodChanged;
+  final int? year;
+  final List<int> years;
+  final ValueChanged<int?> onYearChanged;
+  final DateTimeRange? range;
+  final VoidCallback onPickRange;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Período da análise',
+            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<_PeriodType>(
+              segments: const [
+                ButtonSegment(value: _PeriodType.last6, label: Text('6 meses')),
+                ButtonSegment(value: _PeriodType.year, label: Text('Ano')),
+                ButtonSegment(value: _PeriodType.specific, label: Text('Período')),
+              ],
+              selected: {periodType},
+              onSelectionChanged: (value) => onPeriodChanged(value.first),
+            ),
+          ),
+          if (periodType == _PeriodType.year) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: year ?? (years.isNotEmpty ? years.first : DateTime.now().year),
+              decoration: const InputDecoration(labelText: 'Ano'),
+              items: [
+                for (final year in (years.isEmpty ? [DateTime.now().year] : years))
+                  DropdownMenuItem(value: year, child: Text(year.toString())),
+              ],
+              onChanged: onYearChanged,
+            ),
+          ],
+          if (periodType == _PeriodType.specific) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: onPickRange,
+              icon: const Icon(Icons.calendar_today_outlined, size: 18),
+              label: Text(
+                range == null
+                    ? 'Selecionar período'
+                    : '${formatDateOnly(range!.start.toIso8601String())} - ${formatDateOnly(range!.end.toIso8601String())}',
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

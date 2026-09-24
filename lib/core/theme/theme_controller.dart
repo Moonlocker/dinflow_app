@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 /// Controla o tema claro/escuro do app.
 ///
-/// O webapp inicia no tema claro (`ThemeContext` usa `light` como padrão).
+/// O app inicia no tema escuro (identidade visual premium do mobile);
+/// o usuário ainda pode alternar pelo ícone no cabeçalho.
 class ThemeController extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode = ThemeMode.dark;
 
   ThemeMode get themeMode => _themeMode;
 

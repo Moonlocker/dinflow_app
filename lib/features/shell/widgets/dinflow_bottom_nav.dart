@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+
 class DinFlowNavItem {
   const DinFlowNavItem({
     required this.label,
@@ -14,8 +16,8 @@ class DinFlowNavItem {
 
 /// Barra de navegação inferior do DinFlow.
 ///
-/// Reproduz a `MobileBottomNav.jsx` do webapp: grade com todos os destinos,
-/// indicador superior no item ativo e cores semânticas do tema.
+/// Estilo premium: superfície escura elevada, item ativo em verde-menta com
+/// fundo em cápsula, mantendo a grade de destinos do webapp.
 class DinFlowBottomNav extends StatelessWidget {
   const DinFlowBottomNav({
     super.key,
@@ -40,7 +42,7 @@ class DinFlowBottomNav extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 66,
           child: Row(
             children: [
               for (var index = 0; index < items.length; index++)
@@ -73,30 +75,43 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = active ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
+    final isDark = theme.brightness == Brightness.dark;
+    final activeColor = isDark ? AppColors.mint : theme.colorScheme.primary;
+    final inactiveColor = theme.colorScheme.onSurfaceVariant;
 
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            height: 2,
-            width: active ? 24 : 0,
+            curve: Curves.easeOut,
+            width: 42,
+            height: 30,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(2),
+              color: active
+                  ? activeColor.withValues(alpha: isDark ? 0.16 : 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              active ? item.activeIcon : item.icon,
+              size: 21,
+              color: active ? activeColor : inactiveColor,
             ),
           ),
-          const SizedBox(height: 8),
-          Icon(active ? item.activeIcon : item.icon, size: 22, color: color),
           const SizedBox(height: 3),
           Text(
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color: active ? activeColor : inactiveColor,
+            ),
           ),
         ],
       ),

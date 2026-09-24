@@ -37,6 +37,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>O DinFlow usa o Face ID para desbloquear o aplicativo com segurança.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>O DinFlow precisa acessar suas fotos para definir a imagem de perfil.</string>
 	<key>NSCameraUsageDescription</key>

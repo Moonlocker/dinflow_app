@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 final NumberFormat _currency = NumberFormat.currency(locale: 'pt_BR', symbol: r'R$');
 final DateFormat _shortDate = DateFormat('dd/MM/yyyy', 'pt_BR');
 final DateFormat _monthYear = DateFormat('MMMM yyyy', 'pt_BR');
+final DateFormat _monthName = DateFormat('MMMM', 'pt_BR');
 
 /// Formata um valor monetário em Real brasileiro, igual ao `formatCurrency`
 /// do webapp (`dinflow/src/lib/utils.ts`).
@@ -22,6 +23,13 @@ String formatDateOnly(String? dateString) {
 /// Nome do mês/ano capitalizado (ex.: "Setembro 2026").
 String formatMonthYear(DateTime date) {
   final raw = _monthYear.format(date);
+  if (raw.isEmpty) return raw;
+  return raw[0].toUpperCase() + raw.substring(1);
+}
+
+/// Nome do mês apenas, capitalizado (ex.: "Abril").
+String formatMonth(DateTime date) {
+  final raw = _monthName.format(date);
   if (raw.isEmpty) return raw;
   return raw[0].toUpperCase() + raw.substring(1);
 }

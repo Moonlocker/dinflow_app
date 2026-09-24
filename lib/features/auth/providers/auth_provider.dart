@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/services/biometric_service.dart';
 import '../../../models/global_settings.dart';
 import '../../../models/profile.dart';
 import '../../../models/subscription.dart';
@@ -13,6 +15,9 @@ import '../../../repositories/settings_repository.dart';
 
 enum AuthStatus { unknown, unauthenticated, authenticated }
 
+/// Chave local onde o usuário opta pelo desbloqueio biométrico.
+const String _biometricPrefKey = 'dinflow_biometric_enabled';
+
 /// Estado global de sessão, perfil, assinatura e configurações globais.
 ///
 /// Espelha o `SimpleAuthContext` do webapp, porém simplificado para o app.
@@ -21,13 +26,16 @@ class AuthProvider extends ChangeNotifier {
     AuthRepository? authRepository,
     ProfileRepository? profileRepository,
     SettingsRepository? settingsRepository,
+    BiometricService? biometricService,
   })  : _auth = authRepository ?? AuthRepository(),
         _profiles = profileRepository ?? ProfileRepository(),
-        _settings = settingsRepository ?? SettingsRepository();
+        _settings = settingsRepository ?? SettingsRepository(),
+        _biometrics = biometricService ?? BiometricService();
 
   final AuthRepository _auth;
   final ProfileRepository _profiles;
   final SettingsRepository _settings;
+  final BiometricService _biometrics;
 
   StreamSubscription<AuthState>? _authSubscription;
 
@@ -38,6 +46,8 @@ class AuthProvider extends ChangeNotifier {
   GlobalSettings _globalSettings = const GlobalSettings();
   bool _busy = false;
   String? _errorMessage;
+  bool _biometricEnabled = false;
+  bool _biometricPending = false;
 
   AuthStatus get status => _status;
   User? get user => _user;
@@ -50,18 +60,28 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isInitializing => _status == AuthStatus.unknown;
 
+  /// Se o usuário ativou o desbloqueio biométrico neste dispositivo.
+  bool get biometricEnabled => _biometricEnabled;
+
+  /// Se uma sessão restaurada ainda aguarda a confirmação biométrica.
+  bool get biometricPending => _biometricPending;
+
   String get displayName => _profile?.displayName ?? _user?.email ?? 'Usuário';
 
   Future<void> init() async {
     await _loadGlobalSettings();
+    await _loadBiometricPreference();
 
     final session = _auth.currentSession;
     _user = session?.user;
     if (_user != null) {
       await _loadProfileAndSubscription(_user!.id);
       _status = AuthStatus.authenticated;
+      // Sessão restaurada no cold start: exige biometria quando habilitada.
+      _biometricPending = _biometricEnabled;
     } else {
       _status = AuthStatus.unauthenticated;
+      _biometricPending = false;
     }
     notifyListeners();
 
@@ -259,6 +279,7 @@ class AuthProvider extends ChangeNotifier {
     _profile = null;
     _subscription = null;
     _status = AuthStatus.unauthenticated;
+    _biometricPending = false;
     notifyListeners();
   }
 
@@ -272,6 +293,49 @@ class AuthProvider extends ChangeNotifier {
     if (_errorMessage == null) return;
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Habilita a exigência de biometria ao reabrir o app com sessão salva.
+  ///
+  /// Retorna `false` se o dispositivo não oferecer biometria disponível.
+  Future<bool> enableBiometric() async {
+    final supported = await _biometrics.isSupported();
+    if (!supported) return false;
+    _biometricEnabled = true;
+    await _saveBiometricPreference(true);
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> disableBiometric() async {
+    _biometricEnabled = false;
+    _biometricPending = false;
+    await _saveBiometricPreference(false);
+    notifyListeners();
+  }
+
+  /// Solicita a autenticação biométrica e libera o app quando confirmada.
+  Future<bool> unlockBiometric() async {
+    final ok = await _biometrics.authenticate();
+    if (ok) {
+      _biometricPending = false;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<void> _loadBiometricPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _biometricEnabled = prefs.getBool(_biometricPrefKey) ?? false;
+    } catch (_) {
+      _biometricEnabled = false;
+    }
+  }
+
+  Future<void> _saveBiometricPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_biometricPrefKey, value);
   }
 
   Future<void> _loadGlobalSettings() async {

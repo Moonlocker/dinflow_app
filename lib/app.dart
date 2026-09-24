@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
+import 'features/auth/pages/biometric_unlock_page.dart';
 import 'features/auth/pages/login_page.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/authors/providers/author_provider.dart';
@@ -63,14 +64,15 @@ class _AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = context.select<AuthProvider, AuthStatus>((auth) => auth.status);
+    final auth = context.watch<AuthProvider>();
 
-    switch (status) {
+    switch (auth.status) {
       case AuthStatus.unknown:
         return const _SplashPage();
       case AuthStatus.unauthenticated:
         return const LoginPage();
       case AuthStatus.authenticated:
+        if (auth.biometricPending) return const BiometricUnlockPage();
         return const AppShell();
     }
   }

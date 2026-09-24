@@ -7,7 +7,7 @@ import 'app_colors.dart';
 class AppTheme {
   const AppTheme._();
 
-  static const double radius = 12;
+  static const double radius = 16;
 
   static ThemeData get light => _build(AppColors.lightScheme, AppColors.lightBackground);
   static ThemeData get dark => _build(AppColors.darkScheme, AppColors.darkBackground);
@@ -20,7 +20,8 @@ class AppTheme {
       splashFactory: InkSparkle.splashFactory,
     );
 
-    final textTheme = GoogleFonts.poppinsTextTheme(base.textTheme).apply(
+    // Tipografia limpa e moderna (referências usam Inter/SF Pro).
+    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,
     );
@@ -57,23 +58,23 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: TextStyle(color: scheme.onSurfaceVariant),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius - 4),
+          borderRadius: BorderRadius.circular(radius - 6),
           borderSide: BorderSide(color: scheme.outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius - 4),
+          borderRadius: BorderRadius.circular(radius - 6),
           borderSide: BorderSide(color: scheme.outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius - 4),
+          borderRadius: BorderRadius.circular(radius - 6),
           borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius - 4),
+          borderRadius: BorderRadius.circular(radius - 6),
           borderSide: BorderSide(color: scheme.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius - 4),
+          borderRadius: BorderRadius.circular(radius - 6),
           borderSide: BorderSide(color: scheme.error, width: 1.5),
         ),
       ),
@@ -83,7 +84,7 @@ class AppTheme {
           foregroundColor: scheme.onPrimary,
           minimumSize: const Size.fromHeight(52),
           textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 4)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 6)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -92,7 +93,7 @@ class AppTheme {
           minimumSize: const Size.fromHeight(48),
           side: BorderSide(color: scheme.outline),
           textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 4)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 6)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -106,7 +107,7 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: scheme.inverseSurface,
         contentTextStyle: TextStyle(color: scheme.onInverseSurface),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 4)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius - 6)),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surface,
@@ -114,6 +115,7 @@ class AppTheme {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(radius + 8)),
         ),
+        showDragHandle: true,
       ),
     );
   }

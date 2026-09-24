@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../widgets/capsule_selector.dart';
+import '../../../widgets/month_selector.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../authors/providers/author_provider.dart';
 import '../../bills/providers/bills_provider.dart';
 import '../../chat/pages/chat_page.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../../goals/widgets/goal_form_sheet.dart';
-import '../../impersonation/providers/impersonation_provider.dart';
 import '../../transactions/widgets/transaction_form_sheet.dart';
 import '../widgets/active_goals_card.dart';
 import '../widgets/bills_summary_card.dart';
-import '../widgets/category_breakdown_card.dart';
-import '../widgets/month_navigator.dart';
 import '../widgets/quick_actions_card.dart';
 import '../widgets/recent_transactions_card.dart';
-import '../widgets/summary_card.dart';
 
-/// Dashboard do DinFlow — primeira tela funcional do aplicativo.
+/// Dashboard do DinFlow — tela principal no estilo dos designs de referência:
+/// saldo acumulado, seletor de mês, resumo do mês e categorias em carrossel.
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, this.onOpenPage});
 
@@ -30,6 +30,18 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  static const _palette = [
+    Color(0xFFEF4444),
+    Color(0xFFF59E0B),
+    Color(0xFF8B5CF6),
+    Color(0xFF10B981),
+    Color(0xFF3B82F6),
+    Color(0xFFEC4899),
+  ];
+
+  int _categoryTab = 0;
+  bool _hideBalance = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,20 +60,23 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final auth = context.watch<AuthProvider>();
+    final isDark = theme.brightness == Brightness.dark;
     final dashboard = context.watch<FinanceProvider>();
 
     if (dashboard.loading && !dashboard.hasData) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final greetingName = context.watch<ImpersonationProvider>().impersonatedProfile?.firstName ??
-        auth.profile?.firstName ??
-        (auth.user?.email?.split('@').first ?? '');
+    final billsProvider = context.watch<BillsProvider>();
+    final pendingCount = billsProvider.bills
+        .where((bill) => !billsProvider.isPaid(bill.id))
+        .length;
 
-    final incomeComparison =
-        dashboard.comparison(dashboard.monthlyIncome, dashboard.previousMonthIncome);
-    final expenseComparison = -dashboard.comparison(
+    final incomeComparison = dashboard.comparison(
+      dashboard.monthlyIncome,
+      dashboard.previousMonthIncome,
+    );
+    final expenseComparison = dashboard.comparison(
       dashboard.monthlyExpenses,
       dashboard.previousMonthExpenses,
     );
@@ -73,21 +88,17 @@ class _DashboardPageState extends State<DashboardPage> {
     return RefreshIndicator(
       onRefresh: dashboard.reload,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          Text(
-            'Olá, $greetingName!',
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Aqui está o resumo das suas finanças.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          _BalanceSummary(
+            value: dashboard.accumulatedBalance,
+            comparison: balanceComparison,
+            referenceMonth: dashboard.currentDate,
+            hidden: _hideBalance,
+            onToggleHidden: () => setState(() => _hideBalance = !_hideBalance),
           ),
           const SizedBox(height: 16),
-          MonthNavigator(
+          MonthSelector(
             date: dashboard.currentDate,
             onPrevious: dashboard.previousMonth,
             onNext: dashboard.nextMonth,
@@ -101,56 +112,67 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ],
           const SizedBox(height: 16),
-          GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              mainAxisExtent: 128,
+          if (pendingCount > 0) ...[
+            _PendingBanner(
+              count: pendingCount,
+              onTap: () => widget.onOpenPage?.call('bills'),
             ),
+            const SizedBox(height: 18),
+          ],
+          Text(
+            'Resumo do mês',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MonthSummaryCard(
+            balance: dashboard.monthlyBalance,
+            comparison: balanceComparison,
+            income: dashboard.monthlyIncome,
+            incomeComparison: incomeComparison,
+            expenses: dashboard.monthlyExpenses,
+            expenseComparison: expenseComparison,
+            currentMonth: dashboard.currentDate,
+            hidden: _hideBalance,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              SummaryCard(
-                title: 'Receitas',
-                value: _currency(dashboard.monthlyIncome),
-                icon: Icons.trending_up,
-                accent: const Color(0xFF10B981),
-                footer: ComparisonLabel(comparison: incomeComparison),
-              ),
-              SummaryCard(
-                title: 'Despesas',
-                value: _currency(dashboard.monthlyExpenses),
-                icon: Icons.trending_down,
-                accent: const Color(0xFFEF4444),
-                footer: ComparisonLabel(comparison: expenseComparison),
-              ),
-              SummaryCard(
-                title: 'Saldo',
-                value: _currency(dashboard.monthlyBalance),
-                icon: Icons.attach_money,
-                accent: dashboard.monthlyBalance >= 0
-                    ? const Color(0xFF3B82F6)
-                    : const Color(0xFFF97316),
-                footer: ComparisonLabel(comparison: balanceComparison),
-              ),
-              SummaryCard(
-                title: 'Metas',
-                value: '${dashboard.completedGoalsCount}/${dashboard.totalGoals}',
-                icon: Icons.check_circle_outline,
-                accent: const Color(0xFF8B5CF6),
-                footer: Text(
-                  dashboard.totalGoals > 0
-                      ? '${(dashboard.goalsCompletionRate * 100).round()}% concluídas'
-                      : 'Nenhuma meta',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              Expanded(
+                child: SizedBox(
+                  height: 34,
+                  child: CapsuleSelector(
+                    options: const ['Despesas', 'Receitas'],
+                    selectedIndex: _categoryTab,
+                    onChanged: (index) => setState(() => _categoryTab = index),
                   ),
                 ),
               ),
+              const SizedBox(width: 12),
+              TextButton(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  foregroundColor: isDark
+                      ? AppColors.mint
+                      : theme.colorScheme.primary,
+                ),
+                onPressed: () => widget.onOpenPage?.call('transactions'),
+                child: const Text('Detalhes'),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _CategoryCarousel(
+            totals: _categoryTab == 0
+                ? dashboard.expenseCategories
+                : dashboard.incomeCategories,
+            isIncome: _categoryTab == 1,
+            palette: _palette,
+            hidden: _hideBalance,
+          ),
+          const SizedBox(height: 18),
           RecentTransactionsCard(
             transactions: dashboard.recentTransactions,
             onViewAll: () => widget.onOpenPage?.call('transactions'),
@@ -162,8 +184,8 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           const SizedBox(height: 16),
           BillsSummaryCard(
-            bills: context.watch<BillsProvider>().bills,
-            isPaid: context.read<BillsProvider>().isPaid,
+            bills: billsProvider.bills,
+            isPaid: billsProvider.isPaid,
             onViewAll: () => widget.onOpenPage?.call('bills'),
           ),
           const SizedBox(height: 16),
@@ -193,28 +215,530 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          CategoryBreakdownCard(
-            title: 'Saídas por Categoria',
-            icon: Icons.pie_chart_outline,
-            accent: const Color(0xFFEF4444),
-            totals: dashboard.expenseCategories,
-            emptyMessage: 'Sem saídas neste mês',
+        ],
+      ),
+    );
+  }
+}
+
+/// Bloco de "Saldo acumulado" com valor em destaque e indicador de variação.
+class _BalanceSummary extends StatelessWidget {
+  const _BalanceSummary({
+    required this.value,
+    required this.comparison,
+    required this.referenceMonth,
+    required this.hidden,
+    required this.onToggleHidden,
+  });
+
+  final double value;
+  final double comparison;
+  final DateTime referenceMonth;
+  final bool hidden;
+  final VoidCallback onToggleHidden;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final trendColor = isDark ? AppColors.mint : theme.colorScheme.primary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Seu saldo acumulado',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(height: 16),
-          CategoryBreakdownCard(
-            title: 'Entradas por Categoria',
-            icon: Icons.pie_chart_outline,
-            accent: const Color(0xFF10B981),
-            totals: dashboard.incomeCategories,
-            emptyMessage: 'Sem entradas neste mês',
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  hidden ? r'R$ ••••••' : formatCurrency(value),
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 34,
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: onToggleHidden,
+              icon: Icon(
+                hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        if (comparison != 0 && comparison.isFinite) ...[
+          const SizedBox(height: 6),
+          _TrendChip(
+            text: '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}% ref. último mês',
+            color: trendColor,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Chip de tendência (ex.: "+12% ref. Último mês") com fundo translúcido.
+class _TrendChip extends StatelessWidget {
+  const _TrendChip({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+/// Card "Resumo do mês": saldo do mês, receitas e despesas.
+class _MonthSummaryCard extends StatelessWidget {
+  const _MonthSummaryCard({
+    required this.balance,
+    required this.comparison,
+    required this.income,
+    required this.incomeComparison,
+    required this.expenses,
+    required this.expenseComparison,
+    required this.currentMonth,
+    required this.hidden,
+  });
+
+  final double balance;
+  final double comparison;
+  final double income;
+  final double incomeComparison;
+  final double expenses;
+  final double expenseComparison;
+  final DateTime currentMonth;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final previousMonth = DateTime(currentMonth.year, currentMonth.month - 1, 1);
+    final balanceTrend = comparison != 0 && comparison.isFinite
+        ? _TrendChip(
+            text: '${comparison >= 0 ? '↑' : '↓'} ${comparison.abs().toStringAsFixed(0)}% ref. a ${formatMonth(previousMonth).toLowerCase()}',
+            color: comparison >= 0
+                ? (isDark ? AppColors.mint : const Color(0xFF10B981))
+                : const Color(0xFFEF4444),
+          )
+        : null;
+
+    return _DarkCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Seu saldo em ${formatMonth(currentMonth)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              ?balanceTrend,
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              hidden ? r'R$ ••••••' : formatCurrency(balance),
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Divider(height: 1, color: theme.colorScheme.outline),
+          const SizedBox(height: 10),
+          _CategoryLine(
+            icon: Icons.trending_up,
+            label: 'Receitas',
+            color: const Color(0xFF10B981),
+            comparison: incomeComparison,
+            value: formatCurrency(income),
+          ),
+          const SizedBox(height: 10),
+          _CategoryLine(
+            icon: Icons.trending_down,
+            label: 'Despesas',
+            color: const Color(0xFFEF4444),
+            comparison: expenseComparison,
+            value: formatCurrency(expenses),
           ),
         ],
       ),
     );
   }
+}
 
-  String _currency(double value) => formatCurrency(value);
+/// Linha de receita/despesa com ícone, badge de variação e valor.
+class _CategoryLine extends StatelessWidget {
+  const _CategoryLine({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.comparison,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final double comparison;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasComparison = comparison != 0 && comparison.isFinite;
+
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(label, style: theme.textTheme.bodyMedium),
+        ),
+        if (hasComparison) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+class _DarkCard extends StatelessWidget {
+  const _DarkCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Card de "transações pendentes" com ícone amarelo e chevron.
+class _PendingBanner extends StatelessWidget {
+  const _PendingBanner({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.schedule, size: 20, color: Color(0xFFF59E0B)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Você possui $count ${count == 1 ? 'transação pendente' : 'transações pendentes'}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Carrossel horizontal de cards por categoria com anel de progresso.
+class _CategoryCarousel extends StatelessWidget {
+  const _CategoryCarousel({
+    required this.totals,
+    required this.isIncome,
+    required this.palette,
+    required this.hidden,
+  });
+
+  final List<CategoryTotal> totals;
+  final bool isIncome;
+  final List<Color> palette;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (totals.isEmpty) {
+      return _DarkCard(
+        child: Text(
+          isIncome
+              ? 'Sem receitas neste mês.'
+              : 'Sem despesas neste mês.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    final total = totals.fold<double>(0, (sum, item) => sum + item.total);
+
+    return SizedBox(
+      height: 156,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: totals.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final item = totals[index];
+          final color = item.category.parsedColor != Colors.grey
+              ? item.category.parsedColor
+              : palette[index % palette.length];
+          final percent = total <= 0 ? 0.0 : item.total / total;
+          final sign = isIncome ? '+' : '-';
+          final accent = isIncome
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444);
+
+          return _CategoryRingCard(
+            name: item.category.name,
+            percent: percent,
+            color: color,
+            sign: sign,
+            value: formatCurrency(item.total),
+            valueColor: accent,
+            hidden: hidden,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Card individual da categoria com ring de progresso no centro.
+class _CategoryRingCard extends StatelessWidget {
+  const _CategoryRingCard({
+    required this.name,
+    required this.percent,
+    required this.color,
+    required this.sign,
+    required this.value,
+    required this.valueColor,
+    required this.hidden,
+  });
+
+  final String name;
+  final double percent;
+  final Color color;
+  final String sign;
+  final String value;
+  final Color valueColor;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: 118,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 62,
+            height: 62,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox.expand(
+                  child: CustomPaint(
+                    painter: _RingPainter(
+                      value: percent,
+                      color: color,
+                      trackColor: theme.colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ),
+                Text(
+                  (percent * 100).round().toString(),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              hidden ? '••••••' : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: valueColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Desenha um anel de progresso com pontas arredondadas.
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.value,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final double value;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 5.0;
+    final center = size.center(Offset.zero);
+    final radius = (size.shortestSide - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final track = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, 0, 3.14159 * 2, false, track);
+
+    final sweep = value.clamp(0.0, 1.0) * 3.14159 * 2;
+    if (sweep <= 0) return;
+
+    final progress = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -3.14159 / 2, sweep, false, progress);
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter oldDelegate) =>
+      oldDelegate.value != value ||
+      oldDelegate.color != color ||
+      oldDelegate.trackColor != trackColor;
 }
 
 class _AuthorFilter extends StatelessWidget {

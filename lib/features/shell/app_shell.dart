@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/navigation/app_pages.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/theme_controller.dart';
-import '../../widgets/brand_logo.dart';
 import '../auth/providers/auth_provider.dart';
 import '../authors/providers/author_provider.dart';
 import '../bills/pages/bills_page.dart';
@@ -147,6 +147,7 @@ class _AppShellState extends State<AppShell> {
         ? _currentKey
         : (keys.contains('dashboard') ? 'dashboard' : keys.first);
     final currentIndex = keys.indexOf(currentKey);
+    final page = appPageByKey(currentKey);
 
     final items = [
       for (final key in keys)
@@ -161,30 +162,25 @@ class _AppShellState extends State<AppShell> {
     ];
 
     return Scaffold(
-      appBar: _buildHeader(context),
-      body: Stack(
+      appBar: _buildHeader(
+        context,
+        isDashboard: currentKey == 'dashboard',
+        pageLabel: page.label,
+      ),
+      body: Column(
         children: [
-          Column(
-            children: [
-              if (impersonation.isImpersonating)
-                _ImpersonationBanner(
-                  name:
-                      impersonation.impersonatedProfile?.displayName ?? 'usuário',
-                  onStop: () => context.read<ImpersonationProvider>().stop(),
-                ),
-              if (requiresSubscription) const _SubscriptionBanner(),
-              Expanded(
-                child: IndexedStack(
-                  index: currentIndex,
-                  children: [for (final key in keys) _pageFor(key)],
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            right: 16,
-            bottom: 84,
-            child: _buildFloatingAction(context),
+          if (impersonation.isImpersonating)
+            _ImpersonationBanner(
+              name:
+                  impersonation.impersonatedProfile?.displayName ?? 'usuário',
+              onStop: () => context.read<ImpersonationProvider>().stop(),
+            ),
+          if (requiresSubscription) const _SubscriptionBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: currentIndex,
+              children: [for (final key in keys) _pageFor(key)],
+            ),
           ),
         ],
       ),
@@ -194,39 +190,6 @@ class _AppShellState extends State<AppShell> {
         onTap: (index) => setState(() => _currentKey = keys[index]),
       ),
     );
-  }
-
-  Widget _buildFloatingAction(BuildContext context) {
-    final whatsapp = context.watch<AuthProvider>().globalSettings.whatsapp;
-    if (whatsapp != null && whatsapp.isNotEmpty) {
-      return FloatingActionButton(
-        heroTag: 'whatsapp-fab',
-        backgroundColor: const Color(0xFF25D366),
-        foregroundColor: Colors.white,
-        tooltip: 'Falar no WhatsApp',
-        onPressed: () => _openWhatsApp(whatsapp),
-        child: const Icon(Icons.chat),
-      );
-    }
-    return FloatingActionButton(
-      heroTag: 'assistant-fab',
-      tooltip: 'Assistente',
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ChatPage()),
-      ),
-      child: const Icon(Icons.smart_toy_outlined),
-    );
-  }
-
-  Future<void> _openWhatsApp(String number) async {
-    final digits = number.replaceAll(RegExp(r'\D'), '');
-    final uri = Uri.parse('https://wa.me/$digits');
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
-      );
-    }
   }
 
   void _showAuthorSheet(BuildContext context) {
@@ -280,25 +243,42 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  PreferredSizeWidget _buildHeader(BuildContext context) {
+  PreferredSizeWidget _buildHeader(
+    BuildContext context, {
+    required bool isDashboard,
+    required String pageLabel,
+  }) {
     final theme = Theme.of(context);
 
     return PreferredSize(
-      preferredSize: const Size.fromHeight(60),
+      preferredSize: const Size.fromHeight(64),
       child: Material(
         color: theme.colorScheme.surface,
         child: SafeArea(
           bottom: false,
           child: Container(
-            height: 60,
+            height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: theme.colorScheme.outline)),
             ),
             child: Row(
               children: [
-                const BrandLogo(height: 34),
-                const Spacer(),
+                if (isDashboard)
+                  _DashboardGreeting()
+                else
+                  Expanded(
+                    child: Text(
+                      pageLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                if (!isDashboard) const Spacer(),
+                _ContactButton(),
                 _NotificationsButton(
                   onOpen: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const NotificationsPage()),
@@ -311,17 +291,124 @@ class _AppShellState extends State<AppShell> {
                     theme.brightness == Brightness.light
                         ? Icons.dark_mode_outlined
                         : Icons.light_mode_outlined,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                _AccountMenu(
-                  onOpenAdmin: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SuperAdminPage()),
+                if (!isDashboard)
+                  _AccountButton(
+                    onOpenAdmin: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SuperAdminPage()),
+                    ),
+                    onSwitchAuthor: () => _showAuthorSheet(context),
+                    avatarSize: 18,
                   ),
-                  onSwitchAuthor: () => _showAuthorSheet(context),
-                ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Saudação com avatar (cabeçalho do dashboard). Tocar abre o menu de conta.
+class _DashboardGreeting extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final auth = context.watch<AuthProvider>();
+    final impersonation = context.watch<ImpersonationProvider>();
+    final activeProfile = impersonation.impersonatedProfile ?? auth.profile;
+    final name = activeProfile?.firstName ??
+        activeProfile?.displayName ??
+        (auth.user?.email?.split('@').first ?? '');
+    final displayName = name.trim().isEmpty ? 'Usuário' : name.trim();
+
+    return Expanded(
+      child: _AccountButton(
+        onOpenAdmin: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SuperAdminPage()),
+        ),
+        onSwitchAuthor: () => _showAuthorSheet(context),
+        child: Row(
+          children: [
+            _AccountAvatar(activeProfile: activeProfile, radius: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Olá',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAuthorSheet(BuildContext context) {
+    final authors = context.read<AuthorProvider>();
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Alternar usuário',
+                style: Theme.of(sheetContext)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: const Text('Todos'),
+              selected: authors.selected == null,
+              onTap: () {
+                authors.select(null);
+                context.read<FinanceProvider>().setAuthorFilter(null);
+                Navigator.pop(sheetContext);
+              },
+            ),
+            for (final author in authors.authors)
+              ListTile(
+                leading: Icon(
+                  author.isMain ? Icons.star_outline : Icons.person_outline,
+                ),
+                title: Text(author.name),
+                subtitle: Text(author.whatsapp),
+                selected: authors.selected?.whatsapp == author.whatsapp,
+                onTap: () {
+                  authors.select(author);
+                  context
+                      .read<FinanceProvider>()
+                      .setAuthorFilter(author.whatsapp);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+          ],
         ),
       ),
     );
@@ -367,14 +454,16 @@ class _ImpersonationBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mintColor = theme.brightness == Brightness.dark
+        ? AppColors.mint
+        : theme.colorScheme.primary;
     return Material(
-      color: theme.colorScheme.primary.withValues(alpha: 0.12),
+      color: mintColor.withValues(alpha: 0.12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
-            Icon(Icons.visibility_outlined,
-                size: 18, color: theme.colorScheme.primary),
+            Icon(Icons.visibility_outlined, size: 18, color: mintColor),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -383,7 +472,7 @@ class _ImpersonationBanner extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
+                  color: mintColor,
                 ),
               ),
             ),
@@ -398,14 +487,52 @@ class _ImpersonationBanner extends StatelessWidget {
   }
 }
 
-class _AccountMenu extends StatelessWidget {
-  const _AccountMenu({
+/// Avatar do usuário ativo (imagem do perfil ou inicial).
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({required this.activeProfile, required this.radius});
+
+  final dynamic activeProfile;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final rawName = (activeProfile?.displayName ?? '').trim();
+    final initial = rawName.isEmpty ? 'U' : rawName[0].toUpperCase();
+    final avatarUrl = activeProfile?.avatarUrl as String?;
+    final hasImage = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: theme.colorScheme.primary,
+      backgroundImage: hasImage ? NetworkImage(avatarUrl) : null,
+      child: hasImage
+          ? null
+          : Text(
+              initial,
+              style: TextStyle(
+                color: theme.colorScheme.onPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: radius * 0.85,
+              ),
+            ),
+    );
+  }
+}
+
+/// Botão de conta (menu popup) envolvendo o avatar ou a saudação do usuário.
+class _AccountButton extends StatelessWidget {
+  const _AccountButton({
     required this.onOpenAdmin,
     required this.onSwitchAuthor,
+    this.child,
+    this.avatarSize = 18,
   });
 
   final VoidCallback onOpenAdmin;
   final VoidCallback onSwitchAuthor;
+  final Widget? child;
+  final double avatarSize;
 
   @override
   Widget build(BuildContext context) {
@@ -413,8 +540,6 @@ class _AccountMenu extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final impersonation = context.watch<ImpersonationProvider>();
     final activeProfile = impersonation.impersonatedProfile ?? auth.profile;
-    final rawName = (activeProfile?.displayName ?? auth.user?.email ?? 'U').trim();
-    final initial = rawName.isEmpty ? 'U' : rawName[0].toUpperCase();
     final isSuperadmin = auth.profile?.isSuperadmin ?? false;
     final hasAuthors = context.watch<AuthorProvider>().hasMultiple;
 
@@ -438,7 +563,9 @@ class _AccountMenu extends StatelessWidget {
             children: [
               Text(
                 activeProfile?.displayName ?? 'Usuário',
-                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 activeProfile?.email ?? auth.user?.email ?? '',
@@ -491,27 +618,8 @@ class _AccountMenu extends StatelessWidget {
           ),
         ),
       ],
-      child: Padding(
-        padding: const EdgeInsets.only(left: 4),
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: theme.colorScheme.primary,
-          backgroundImage: (activeProfile?.avatarUrl != null &&
-                  activeProfile!.avatarUrl!.isNotEmpty)
-              ? NetworkImage(activeProfile.avatarUrl!)
-              : null,
-          child: (activeProfile?.avatarUrl == null ||
-                  activeProfile!.avatarUrl!.isEmpty)
-              ? Text(
-                  initial,
-                  style: TextStyle(
-                    color: theme.colorScheme.onPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                )
-              : null,
-        ),
-      ),
+      child: child ??
+          _AccountAvatar(activeProfile: activeProfile, radius: avatarSize),
     );
   }
 }
@@ -523,17 +631,114 @@ class _NotificationsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final unread = context.select<NotificationsProvider, int>(
       (provider) => provider.unreadCount,
     );
 
-    return IconButton(
-      tooltip: 'Notificações',
+    return _SquareIconButton(
       onPressed: onOpen,
-      icon: Badge(
-        isLabelVisible: unread > 0,
-        label: Text(unread > 99 ? '99+' : '$unread'),
-        child: const Icon(Icons.notifications_none_rounded),
+      tooltip: 'Notificações',
+      icon: Icons.notifications_none_rounded,
+      badge: unread > 0
+          ? Positioned(
+              top: 9,
+              right: 9,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.mint : theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: theme.colorScheme.surface, width: 1.5),
+                ),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+/// Botão de contato (WhatsApp ou assistente) no cabeçalho.
+class _ContactButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final whatsapp = context.watch<AuthProvider>().globalSettings.whatsapp;
+
+    if (whatsapp != null && whatsapp.isNotEmpty) {
+      return _SquareIconButton(
+        tooltip: 'Falar no WhatsApp',
+        icon: Icons.chat_rounded,
+        color: isDark ? AppColors.mint : theme.colorScheme.primary,
+        onPressed: () => _open(context, whatsapp),
+      );
+    }
+    return _SquareIconButton(
+      tooltip: 'Assistente',
+      icon: Icons.smart_toy_outlined,
+      color: isDark ? AppColors.mint : theme.colorScheme.primary,
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatPage()),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context, String number) async {
+    final digits = number.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.parse('https://wa.me/$digits');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
+      );
+    }
+  }
+}
+
+/// Ícone no estilo das referências: botão quadrado compacto e arredondado.
+class _SquareIconButton extends StatelessWidget {
+  const _SquareIconButton({
+    required this.icon,
+    this.color,
+    this.tooltip,
+    this.onPressed,
+    this.badge,
+  });
+
+  final IconData icon;
+  final Color? color;
+  final String? tooltip;
+  final VoidCallback? onPressed;
+  final Widget? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final iconColor = color ?? theme.colorScheme.onSurfaceVariant;
+
+    return Tooltip(
+      message: tooltip ?? '',
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(icon, size: 20, color: iconColor),
+                ?badge,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

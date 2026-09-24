@@ -394,6 +394,12 @@ class FinanceProvider extends ChangeNotifier {
 
   double get previousMonthBalance => previousMonthIncome - previousMonthExpenses;
 
+  /// Saldo acumulado considerando todas as transações (receitas - despesas).
+  double get accumulatedBalance => _filteredTransactions.fold<double>(
+        0,
+        (sum, transaction) => sum + (transaction.isIncome ? transaction.amount : -transaction.amount),
+      );
+
   double _sumByType(List<Transaction> list, String type) {
     return list
         .where((transaction) => transaction.type == type)

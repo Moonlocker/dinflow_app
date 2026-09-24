@@ -18,6 +18,39 @@ class SecuritySettingsPage extends StatefulWidget {
 
 class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   bool _saving = false;
+  bool _savingBiometric = false;
+
+  Future<void> _toggleBiometric(bool value) async {
+    final auth = context.read<AuthProvider>();
+    setState(() => _savingBiometric = true);
+    try {
+      if (value) {
+        final ok = await auth.enableBiometric();
+        if (!mounted) return;
+        if (!ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Seu dispositivo não possui biometria disponível ou configurada.',
+              ),
+            ),
+          );
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Desbloqueio biométrico ativado.')),
+        );
+      } else {
+        await auth.disableBiometric();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Desbloqueio biométrico desativado.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingBiometric = false);
+    }
+  }
 
   Future<void> _enable() async {
     final auth = context.read<AuthProvider>();
@@ -239,7 +272,8 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profile = context.watch<AuthProvider>().profile;
+    final auth = context.watch<AuthProvider>();
+    final profile = auth.profile;
     final enabled = profile?.twoFactorEnabled ?? false;
 
     return Scaffold(
@@ -247,6 +281,47 @@ class _SecuritySettingsPageState extends State<SecuritySettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.fingerprint,
+                      color: auth.biometricEnabled
+                          ? const Color(0xFF10B981)
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Desbloqueio biométrico',
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  auth.biometricEnabled
+                      ? 'O app será bloqueado com biometria sempre que a sessão for restaurada.'
+                      : 'Use seu sensor de impressão digital ou Face ID para desbloquear o app.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: auth.biometricEnabled,
+                  onChanged: _savingBiometric ? null : _toggleBiometric,
+                  title: const Text('Exigir biometria para abrir o app'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
