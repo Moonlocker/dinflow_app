@@ -631,6 +631,9 @@ class _UserEditDialogState extends State<_UserEditDialog> {
                   DropdownMenuItem(value: 'active', child: Text('Ativo')),
                   DropdownMenuItem(value: 'trial', child: Text('Trial')),
                   DropdownMenuItem(value: 'expired', child: Text('Expirado')),
+                  DropdownMenuItem(value: 'canceled', child: Text('Cancelado')),
+                  DropdownMenuItem(value: 'past_due', child: Text('Pagamento pendente')),
+                  DropdownMenuItem(value: 'inactive', child: Text('Inativo')),
                 ],
                 onChanged: (value) =>
                     setState(() => _subscriptionStatus = value ?? 'active'),

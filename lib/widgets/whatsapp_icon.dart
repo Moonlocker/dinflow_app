@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Ícone do WhatsApp desenhado com [CustomPaint] a partir do caminho do
@@ -27,6 +29,9 @@ class _WhatsAppPainter extends CustomPainter {
 
   static const double _iconWidth = 448;
 
+  /// Altura real do glifo do FontAwesome (o viewBox tem 512, com folga).
+  static const double _iconHeight = 512;
+
   static const String _data =
       'M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 '
       '0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 '
@@ -38,77 +43,122 @@ class _WhatsAppPainter extends CustomPainter {
       '16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z';
 
   static final RegExp _token = RegExp(r'[A-Za-z]|-?(?:\d+\.?\d*|\.\d+)');
+  static final RegExp _isCommand = RegExp(r'[A-Za-z]');
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
     final path = _buildPath(size);
-    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true,
+    );
   }
 
   Path _buildPath(Size size) {
-    final scale = size.width / _iconWidth;
-    final path = Path();
-    var x = 0.0;
-    var y = 0.0;
+    final scale = math.min(size.width / _iconWidth, size.height / _iconHeight);
+    final offsetX = (size.width - _iconWidth * scale) / 2;
+    final offsetY = (size.height - _iconHeight * scale) / 2;
 
+    final path = Path();
     final tokens = _token.allMatches(_data).map((m) => m.group(0)!).toList();
+
     var i = 0;
+    var cx = 0.0; // ponto atual
+    var cy = 0.0;
+    var startX = 0.0; // início da subpath (usado após Z)
+    var startY = 0.0;
     var command = '';
 
+    double x(double value) => offsetX + value * scale;
+    double y(double value) => offsetY + value * scale;
+
     while (i < tokens.length) {
-      final token = tokens[i];
-      if (RegExp(r'[A-Za-z]').hasMatch(token)) {
-        command = token;
+      if (_isCommand.hasMatch(tokens[i])) {
+        command = tokens[i];
         i++;
-        if (command == 'z' || command == 'Z') path.close();
+      } else if (command.isEmpty) {
+        i++;
         continue;
       }
 
-      final numbers = <double>[];
-      while (i < tokens.length && !RegExp(r'[A-Za-z]').hasMatch(tokens[i])) {
-        numbers.add(double.parse(tokens[i]));
-        i++;
-      }
+      final upper = command.toUpperCase();
+      final relative = command == command.toLowerCase();
 
-      final isRelative = command.toLowerCase() == command;
-      switch (command.toUpperCase()) {
+      switch (upper) {
         case 'M':
-          final nx = isRelative ? x + numbers[0] : numbers[0];
-          final ny = isRelative ? y + numbers[1] : numbers[1];
-          x = nx;
-          y = ny;
-          path.moveTo(nx * scale, ny * scale);
         case 'L':
-          final nx = isRelative ? x + numbers[0] : numbers[0];
-          final ny = isRelative ? y + numbers[1] : numbers[1];
-          path.lineTo(nx * scale, ny * scale);
-          x = nx;
-          y = ny;
+          var first = true;
+          while (i + 1 < tokens.length && !_isCommand.hasMatch(tokens[i])) {
+            var px = double.parse(tokens[i++]);
+            var py = double.parse(tokens[i++]);
+            if (relative) {
+              px += cx;
+              py += cy;
+            }
+            if (upper == 'M' && first) {
+              path.moveTo(x(px), y(py));
+              startX = px;
+              startY = py;
+            } else {
+              path.lineTo(x(px), y(py));
+            }
+            cx = px;
+            cy = py;
+            first = false;
+          }
+          // Após um moveto, pares seguintes são lineto (regra do SVG).
+          if (upper == 'M') command = relative ? 'l' : 'L';
         case 'H':
-          final nx = isRelative ? x + numbers[0] : numbers[0];
-          path.lineTo(nx * scale, y * scale);
-          x = nx;
+          while (i < tokens.length && !_isCommand.hasMatch(tokens[i])) {
+            var px = double.parse(tokens[i++]);
+            if (relative) px += cx;
+            path.lineTo(x(px), y(cy));
+            cx = px;
+          }
         case 'V':
-          final ny = isRelative ? y + numbers[0] : numbers[0];
-          path.lineTo(x * scale, ny * scale);
-          y = ny;
+          while (i < tokens.length && !_isCommand.hasMatch(tokens[i])) {
+            var py = double.parse(tokens[i++]);
+            if (relative) py += cy;
+            path.lineTo(x(cx), y(py));
+            cy = py;
+          }
         case 'C':
-          final c1x = (isRelative ? x : 0) + numbers[0];
-          final c1y = (isRelative ? y : 0) + numbers[1];
-          final c2x = (isRelative ? x : 0) + numbers[2];
-          final c2y = (isRelative ? y : 0) + numbers[3];
-          final ex = (isRelative ? x : 0) + numbers[4];
-          final ey = (isRelative ? y : 0) + numbers[5];
-          path.cubicTo(
-            c1x * scale,
-            c1y * scale,
-            c2x * scale,
-            c2y * scale,
-            ex * scale,
-            ey * scale,
-          );
-          x = ex;
-          y = ey;
+          while (i + 5 < tokens.length && !_isCommand.hasMatch(tokens[i])) {
+            var x1 = double.parse(tokens[i++]);
+            var y1 = double.parse(tokens[i++]);
+            var x2 = double.parse(tokens[i++]);
+            var y2 = double.parse(tokens[i++]);
+            var px = double.parse(tokens[i++]);
+            var py = double.parse(tokens[i++]);
+            if (relative) {
+              x1 += cx;
+              y1 += cy;
+              x2 += cx;
+              y2 += cy;
+              px += cx;
+              py += cy;
+            }
+            path.cubicTo(
+              x(x1),
+              y(y1),
+              x(x2),
+              y(y2),
+              x(px),
+              y(py),
+            );
+            cx = px;
+            cy = py;
+          }
+        case 'Z':
+          path.close();
+          cx = startX;
+          cy = startY;
+        default:
+          i++;
       }
     }
     return path;

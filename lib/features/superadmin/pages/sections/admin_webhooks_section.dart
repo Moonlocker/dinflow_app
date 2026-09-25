@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../repositories/admin_repository.dart';
@@ -260,7 +261,8 @@ class _IncomingTabState extends State<_IncomingTab> {
           trailing: IconButton(
             tooltip: 'Copiar',
             onPressed: () {
-              showAdminSnack(context, 'URL: $_receiverUrl');
+              Clipboard.setData(ClipboardData(text: _receiverUrl));
+              showAdminSnack(context, 'URL copiada.');
             },
             icon: const Icon(Icons.copy, size: 18),
           ),
@@ -311,7 +313,8 @@ class _OutgoingTabState extends State<_OutgoingTab> {
   final _repo = AdminRepository();
   final _urlController = TextEditingController();
   final _secretController = TextEditingController();
-  final Set<String> _enabledEvents = {};
+  // O backend guarda `enabled_events` como objeto JSON ({evento: true}).
+  final Map<String, bool> _enabledEvents = {};
   bool _loading = true;
   bool _saving = false;
 
@@ -335,8 +338,15 @@ class _OutgoingTabState extends State<_OutgoingTab> {
         _urlController.text = '${config['response_url'] ?? ''}';
         _secretController.text = '${config['outgoing_secret'] ?? ''}';
         final events = config['enabled_events'];
-        if (events is List) {
-          _enabledEvents.addAll(events.map((e) => e.toString()));
+        if (events is Map) {
+          events.forEach((key, value) {
+            _enabledEvents[key.toString()] = value == true;
+          });
+        } else if (events is List) {
+          // Compatibilidade com o formato antigo (lista de eventos).
+          for (final event in events) {
+            _enabledEvents[event.toString()] = true;
+          }
         }
       }
       if (!mounted) return;
@@ -353,7 +363,7 @@ class _OutgoingTabState extends State<_OutgoingTab> {
       await _repo.saveWebhookConfig({
         'response_url': _urlController.text.trim(),
         'outgoing_secret': _secretController.text.trim(),
-        'enabled_events': _enabledEvents.toList(),
+        'enabled_events': _enabledEvents,
       });
       if (!mounted) return;
       showAdminSnack(context, 'Configuração salva.');
@@ -434,15 +444,11 @@ class _OutgoingTabState extends State<_OutgoingTab> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  value: _enabledEvents.contains(event.$1),
+                  value: _enabledEvents[event.$1] ?? false,
                   title: Text(event.$2),
                   subtitle: Text(event.$1),
                   onChanged: (value) => setState(() {
-                    if (value) {
-                      _enabledEvents.add(event.$1);
-                    } else {
-                      _enabledEvents.remove(event.$1);
-                    }
+                    _enabledEvents[event.$1] = value;
                   }),
                 ),
             ],

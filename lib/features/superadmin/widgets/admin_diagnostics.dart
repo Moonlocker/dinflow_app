@@ -16,17 +16,15 @@ class _AdminDiagnosticsState extends State<AdminDiagnostics> {
   bool _running = false;
   List<_DiagResult> _results = const [];
 
+  // `stripe-config-check` é verificado à parte (abaixo), por isso não entra aqui.
   static const _criticalFunctions = [
     'stripe-create-checkout',
     'stripe-check-subscription',
     'stripe-customer-portal',
-    'stripe-config-check',
   ];
 
   static const _optionalFunctions = [
     'mercadopago-create-checkout',
-    'send-email',
-    'send-notification',
   ];
 
   Future<void> _run() async {
@@ -114,6 +112,15 @@ class _AdminDiagnosticsState extends State<AdminDiagnostics> {
     try {
       await client.functions.invoke(name, body: const {'test': true});
       return _DiagResult(title: name, ok: true, detail: 'Respondendo');
+    } on FunctionException catch (error) {
+      // 400-499 significa que a função existe e respondeu (payload inválido,
+      // autenticação, etc). Só 404/rede indicam indisponibilidade real.
+      final exists = error.status >= 400 && error.status < 500;
+      return _DiagResult(
+        title: name,
+        ok: exists,
+        detail: exists ? 'Respondendo' : 'Indisponível',
+      );
     } catch (_) {
       return _DiagResult(
         title: name,

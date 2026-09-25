@@ -170,12 +170,16 @@ class _AdminPlansSectionState extends State<AdminPlansSection> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${formatCurrency(plan.price)} • ${plan.recurrenceLabel}',
+                        plan.isFree
+                            ? 'Gratuito'
+                            : '${formatCurrency(plan.price)} • ${plan.recurrenceLabel}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Números WhatsApp extras: ${plan.whatsappNumbersLimit}',
+                        'WhatsApp: ${plan.allowWhatsappMessages ? 'permitido' : 'bloqueado'} • '
+                        'Números: ${plan.whatsappNumbersLimit} • '
+                        'Transações/mês: ${plan.maxTransactionsMonthly == 0 ? 'ilimitadas' : plan.maxTransactionsMonthly}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -241,8 +245,11 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _limitController;
+  late final TextEditingController _maxTransactionsController;
   late String _recurrence;
   late String _status;
+  late bool _isFree;
+  late bool _allowWhatsapp;
   late List<TextEditingController> _featureControllers;
   bool _saving = false;
 
@@ -255,8 +262,12 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
         TextEditingController(text: plan != null ? plan.price.toStringAsFixed(2) : '');
     _limitController = TextEditingController(
         text: plan != null ? plan.whatsappNumbersLimit.toString() : '0');
+    _maxTransactionsController = TextEditingController(
+        text: plan != null ? plan.maxTransactionsMonthly.toString() : '0');
     _recurrence = plan?.recurrence ?? 'monthly';
     _status = plan?.status ?? 'Ativo';
+    _isFree = plan?.isFree ?? false;
+    _allowWhatsapp = plan?.allowWhatsappMessages ?? true;
     _featureControllers = [
       for (final feature in plan?.features ?? const <String>[])
         TextEditingController(text: feature),
@@ -271,6 +282,7 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
     _nameController.dispose();
     _priceController.dispose();
     _limitController.dispose();
+    _maxTransactionsController.dispose();
     for (final controller in _featureControllers) {
       controller.dispose();
     }
@@ -297,17 +309,29 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
       'recurrence': _recurrence,
       'features': features,
       'whatsapp_numbers_limit': int.tryParse(_limitController.text) ?? 0,
+      'is_free': _isFree,
+      'allow_whatsapp_messages': _allowWhatsapp,
+      'max_transactions_monthly':
+          int.tryParse(_maxTransactionsController.text) ?? 0,
     };
 
     setState(() => _saving = true);
     try {
       if (widget.plan != null) {
         await widget.repo.updatePlan(widget.plan!.id, payload);
-        try {
-          await widget.repo.syncPlan(widget.plan!.id, 'upsert');
-        } catch (_) {}
+        if (!_isFree) {
+          try {
+            await widget.repo.syncPlan(widget.plan!.id, 'upsert');
+          } catch (_) {}
+        }
       } else {
-        await widget.repo.createPlan(payload);
+        final id = await widget.repo.createPlan(payload);
+        // Plano gratuito não vai para o Stripe (não tem checkout).
+        if (!_isFree) {
+          try {
+            await widget.repo.syncPlan(id, 'upsert');
+          } catch (_) {}
+        }
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -361,7 +385,15 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
                 controller: _limitController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Números WhatsApp extras',
+                  labelText: 'Números WhatsApp permitidos (1 = só o principal)',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _maxTransactionsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Limite de transações por mês (0 = ilimitado)',
                 ),
               ),
               const SizedBox(height: 12),
@@ -374,7 +406,24 @@ class _PlanFormDialogState extends State<_PlanFormDialog> {
                 ],
                 onChanged: (value) => setState(() => _status = value ?? 'Ativo'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 4),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isFree,
+                onChanged: (value) => setState(() => _isFree = value),
+                title: const Text('Plano gratuito'),
+                subtitle: const Text(
+                  'Usado como padrão quando o usuário não tem assinatura ativa',
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _allowWhatsapp,
+                onChanged: (value) => setState(() => _allowWhatsapp = value),
+                title: const Text('Permitir WhatsApp'),
+                subtitle: const Text('Lançamentos pela integração de WhatsApp'),
+              ),
+              const SizedBox(height: 8),
               Text(
                 'Funcionalidades',
                 style: Theme.of(context)

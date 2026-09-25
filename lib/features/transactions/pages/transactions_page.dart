@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/category.dart';
 import '../../../models/transaction.dart';
@@ -199,34 +200,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStat(
-                  title: 'Entradas',
-                  value: formatCurrency(totalIncome),
-                  color: const Color(0xFF10B981),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniStat(
-                  title: 'Saídas',
-                  value: formatCurrency(totalExpense),
-                  color: const Color(0xFFEF4444),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _MiniStat(
-            title: 'Saldo do período',
-            value: formatCurrency(totalIncome - totalExpense),
-            color: (totalIncome - totalExpense) >= 0
-                ? const Color(0xFF3B82F6)
-                : const Color(0xFFF97316),
-            wide: true,
-          ),
+          _PeriodSummaryCard(income: totalIncome, expenses: totalExpense),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -376,52 +350,131 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({
-    required this.title,
-    required this.value,
-    required this.color,
-    this.wide = false,
-  });
+/// Resumo compacto do período: saldo à direita e barras de entradas/saídas
+/// (mesmo padrão visual do card usado em Relatórios).
+class _PeriodSummaryCard extends StatelessWidget {
+  const _PeriodSummaryCard({required this.income, required this.expenses});
 
-  final String title;
-  final String value;
-  final Color color;
-  final bool wide;
+  final double income;
+  final double expenses;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AppCard(
-      color: color.withValues(
-        alpha: theme.brightness == Brightness.dark ? 0.16 : 0.08,
+    final isDark = theme.brightness == Brightness.dark;
+    final max = income > expenses ? income : expenses;
+    final effectiveMax = max <= 0 ? 1.0 : max;
+    final balance = income - expenses;
+    final mint = isDark ? AppColors.mint : const Color(0xFF10B981);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline),
       ),
-      borderColor: color.withValues(alpha: 0.25),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Saldo do período',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Text(
+                formatCurrency(balance),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: balance >= 0 ? mint : const Color(0xFFEF4444),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ProgressLine(
+            label: 'Entradas',
+            value: income,
+            ratio: income / effectiveMax,
+            color: mint,
+          ),
+          const SizedBox(height: 10),
+          _ProgressLine(
+            label: 'Saídas',
+            value: expenses,
+            ratio: expenses / effectiveMax,
+            color: const Color(0xFFEF4444),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressLine extends StatelessWidget {
+  const _ProgressLine({
+    required this.label,
+    required this.value,
+    required this.ratio,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final double ratio;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        SizedBox(
+          width: 68,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+        ),
+        Expanded(
+          flex: 3,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: ratio.clamp(0, 1),
+              minHeight: 6,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 2,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatCurrency(value),
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-          if (wide) const SizedBox(height: 0),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

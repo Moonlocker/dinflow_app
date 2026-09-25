@@ -127,13 +127,15 @@ class AdminRepository {
     final data = await _client
         .from('plans')
         .select(
-            'id, name, price, status, recurrence, features, whatsapp_numbers_limit, stripe_product_id')
+            'id, name, price, status, recurrence, features, whatsapp_numbers_limit, stripe_product_id, is_free, allow_whatsapp_messages, max_transactions_monthly')
         .order('created_at', ascending: false);
     return _asMapList(data).map(Plan.fromMap).toList();
   }
 
-  Future<void> createPlan(Map<String, dynamic> values) async {
-    await _client.from('plans').insert(values);
+  Future<String> createPlan(Map<String, dynamic> values) async {
+    final data =
+        await _client.from('plans').insert(values).select('id').single();
+    return data['id'] as String;
   }
 
   Future<void> updatePlan(String id, Map<String, dynamic> values) async {
@@ -222,10 +224,6 @@ class AdminRepository {
     });
   }
 
-  Future<void> insertEmailHistory(Map<String, dynamic> values) async {
-    await _client.from('email_history').insert(values);
-  }
-
   Future<Map<String, dynamic>?> insertEmailHistoryReturning(
       Map<String, dynamic> values) async {
     final data =
@@ -288,8 +286,11 @@ class AdminRepository {
     });
   }
 
-  Future<void> insertNotificationHistory(Map<String, dynamic> values) async {
-    await _client.from('notification_history').insert(values);
+  Future<Map<String, dynamic>?> insertNotificationHistory(
+      Map<String, dynamic> values) async {
+    final data =
+        await _client.from('notification_history').insert(values).select().single();
+    return Map<String, dynamic>.from(data);
   }
 
   Future<void> updateNotificationHistory(
@@ -552,10 +553,6 @@ class AdminRepository {
       'send-whatsapp-message',
       body: {'to': to, 'message': message},
     );
-  }
-
-  Future<void> deleteWhatsAppMessage(String id) async {
-    await _client.from('whatsapp_messages').delete().eq('id', id);
   }
 
   Future<void> deleteWhatsAppChat(String whatsapp) async {

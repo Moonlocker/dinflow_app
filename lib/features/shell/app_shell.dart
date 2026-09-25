@@ -150,11 +150,14 @@ class _AppShellState extends State<AppShell> {
     final impersonation = context.watch<ImpersonationProvider>();
     final auth = context.watch<AuthProvider>();
     final activeProfile = impersonation.impersonatedProfile ?? auth.profile;
-    // Sem plano ativo, apenas Configurações fica acessível (como no webapp).
+    // Sem plano ativo, apenas Configurações fica acessível (como no webapp),
+    // exceto quando existe um plano gratuito configurado como fallback.
+    final hasFreeFallback = auth.planAccess?.isFree == true;
     final requiresSubscription =
         activeProfile != null &&
         !activeProfile.isSubscriptionActive &&
-        !impersonation.isImpersonating;
+        !impersonation.isImpersonating &&
+        !hasFreeFallback;
 
     var keys = _resolvedKeys(visibility);
     if (requiresSubscription) {

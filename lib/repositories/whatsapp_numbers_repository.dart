@@ -77,19 +77,37 @@ class WhatsappNumbersRepository {
   }
 
   /// Limite de números do plano do usuário (1 = apenas o principal).
+  ///
+  /// Usa o plano da assinatura quando existe; caso contrário cai no plano
+  /// gratuito (`is_free = true`). Em erro retorna 1 (apenas o principal).
   Future<int> fetchPlanLimit(String userId) async {
-    final subscription = await _client
-        .from('subscriptions')
-        .select('plan_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-    final planId = subscription?['plan_id'];
-    if (planId == null) return 1;
-    final plan = await _client
-        .from('plans')
-        .select('whatsapp_numbers_limit')
-        .eq('id', planId)
-        .maybeSingle();
-    return (plan?['whatsapp_numbers_limit'] as num?)?.toInt() ?? 1;
+    try {
+      final subscription = await _client
+          .from('subscriptions')
+          .select('plan_id')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+      final planId = subscription?['plan_id'];
+      Map<String, dynamic>? plan;
+      if (planId != null) {
+        plan = await _client
+            .from('plans')
+            .select('whatsapp_numbers_limit')
+            .eq('id', planId)
+            .maybeSingle();
+      }
+      plan ??= await _client
+          .from('plans')
+          .select('whatsapp_numbers_limit')
+          .eq('is_free', true)
+          .eq('status', 'Ativo')
+          .limit(1)
+          .maybeSingle();
+      return (plan?['whatsapp_numbers_limit'] as num?)?.toInt() ?? 1;
+    } catch (_) {
+      return 1;
+    }
   }
 }

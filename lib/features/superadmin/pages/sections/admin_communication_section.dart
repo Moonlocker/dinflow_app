@@ -130,20 +130,27 @@ class _EmailTabState extends State<_EmailTab> {
             'subject': subject,
             'body': body,
             'recipients_count': selected.length,
-            'status': 'Enviando...',
+            'status': 'Agendado',
             'provider': 'smtp',
             'sent_at': DateTime.now().toIso8601String(),
           });
-          await _repo.sendEmail(
-            subject: subject,
-            body: body,
-            recipients: selected,
-            historyId: history?['id'] as String?,
-          );
-          await _repo.updateEmailHistory(
-            '${history?['id']}',
-            {'status': 'Enviado'},
-          );
+          final historyId = history?['id'] as String?;
+          try {
+            await _repo.sendEmail(
+              subject: subject,
+              body: body,
+              recipients: selected,
+              historyId: historyId,
+            );
+            if (historyId != null) {
+              await _repo.updateEmailHistory(historyId, {'status': 'Enviado'});
+            }
+          } catch (_) {
+            if (historyId != null) {
+              await _repo.updateEmailHistory(historyId, {'status': 'Falhou'});
+            }
+            rethrow;
+          }
         },
       ),
     );
@@ -327,18 +334,36 @@ class _NotificationTabState extends State<_NotificationTab> {
         titleLabel: 'Título',
         bodyLabel: 'Corpo da Notificação',
         onSend: (title, body, selected) async {
-          await _repo.insertNotificationHistory({
+          final history = await _repo.insertNotificationHistory({
             'title': title,
             'body': body,
             'recipients_count': selected.length,
-            'status': 'Enviada',
+            'status': 'Agendada',
             'sent_at': DateTime.now().toIso8601String(),
           });
-          await _repo.sendNotification(
-            title: title,
-            body: body,
-            recipients: selected,
-          );
+          final historyId = history?['id'] as String?;
+          try {
+            await _repo.sendNotification(
+              title: title,
+              body: body,
+              recipients: selected,
+              historyId: historyId,
+            );
+            if (historyId != null) {
+              await _repo.updateNotificationHistory(
+                historyId,
+                {'status': 'Enviada'},
+              );
+            }
+          } catch (_) {
+            if (historyId != null) {
+              await _repo.updateNotificationHistory(
+                historyId,
+                {'status': 'Falhou'},
+              );
+            }
+            rethrow;
+          }
         },
       ),
     );

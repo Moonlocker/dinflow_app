@@ -83,8 +83,6 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           _BalanceSummary(
             value: dashboard.accumulatedBalance,
-            comparison: balanceComparison,
-            referenceMonth: dashboard.currentDate,
             hidden: _hideBalance,
             onToggleHidden: () => setState(() => _hideBalance = !_hideBalance),
           ),
@@ -171,23 +169,17 @@ class _DashboardPageState extends State<DashboardPage> {
 class _BalanceSummary extends StatelessWidget {
   const _BalanceSummary({
     required this.value,
-    required this.comparison,
-    required this.referenceMonth,
     required this.hidden,
     required this.onToggleHidden,
   });
 
   final double value;
-  final double comparison;
-  final DateTime referenceMonth;
   final bool hidden;
   final VoidCallback onToggleHidden;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final trendColor = isDark ? AppColors.mint : theme.colorScheme.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -228,14 +220,6 @@ class _BalanceSummary extends StatelessWidget {
             ),
           ],
         ),
-        if (comparison != 0 && comparison.isFinite) ...[
-          const SizedBox(height: 6),
-          _TrendChip(
-            text:
-                '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}% ref. último mês',
-            color: trendColor,
-          ),
-        ],
       ],
     );
   }
@@ -243,26 +227,31 @@ class _BalanceSummary extends StatelessWidget {
 
 /// Chip de tendência (ex.: "+12% ref. Último mês") com fundo translúcido.
 class _TrendChip extends StatelessWidget {
-  const _TrendChip({required this.text, required this.color});
+  const _TrendChip({required this.text, required this.color, this.dense = false});
 
   final String text;
   final Color color;
+
+  /// Versão reduzida, usada quando o chip precisa ficar mais discreto.
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: dense
+            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 2)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.16),
+          color: color.withValues(alpha: dense ? 0.12 : 0.16),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
           text,
           maxLines: 1,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: dense ? 11 : 12,
             fontWeight: FontWeight.w600,
             color: color,
           ),
@@ -305,6 +294,7 @@ class _MonthSummaryCard extends StatelessWidget {
     );
     final balanceTrend = comparison != 0 && comparison.isFinite
         ? _TrendChip(
+            dense: true,
             text:
                 '${comparison >= 0 ? '↑' : '↓'} ${comparison.abs().toStringAsFixed(0)}% ref. a ${formatMonth(previousMonth).toLowerCase()}',
             color: comparison >= 0
@@ -704,6 +694,9 @@ class _CategoryTransactionsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    // `useSafeArea` do modal só evita o topo; garante o recuo dos botões de
+    // navegação/gestos do sistema no rodapé.
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -758,7 +751,7 @@ class _CategoryTransactionsSheet extends StatelessWidget {
         Divider(height: 1, color: theme.colorScheme.outline),
         if (transactions.isEmpty)
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
             child: Text(
               'Nenhum lançamento neste período.',
               textAlign: TextAlign.center,
@@ -771,7 +764,7 @@ class _CategoryTransactionsSheet extends StatelessWidget {
           Flexible(
             child: ListView.separated(
               shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 20 + bottomInset),
               itemCount: transactions.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {

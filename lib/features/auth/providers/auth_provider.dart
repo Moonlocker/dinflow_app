@@ -7,9 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/services/biometric_service.dart';
 import '../../../models/global_settings.dart';
+import '../../../models/plan_access.dart';
 import '../../../models/profile.dart';
 import '../../../models/subscription.dart';
 import '../../../repositories/auth_repository.dart';
+import '../../../repositories/plan_access_repository.dart';
 import '../../../repositories/profile_repository.dart';
 import '../../../repositories/settings_repository.dart';
 
@@ -26,15 +28,18 @@ class AuthProvider extends ChangeNotifier {
     AuthRepository? authRepository,
     ProfileRepository? profileRepository,
     SettingsRepository? settingsRepository,
+    PlanAccessRepository? planAccessRepository,
     BiometricService? biometricService,
   })  : _auth = authRepository ?? AuthRepository(),
         _profiles = profileRepository ?? ProfileRepository(),
         _settings = settingsRepository ?? SettingsRepository(),
+        _planAccessRepo = planAccessRepository ?? PlanAccessRepository(),
         _biometrics = biometricService ?? BiometricService();
 
   final AuthRepository _auth;
   final ProfileRepository _profiles;
   final SettingsRepository _settings;
+  final PlanAccessRepository _planAccessRepo;
   final BiometricService _biometrics;
 
   StreamSubscription<AuthState>? _authSubscription;
@@ -43,6 +48,7 @@ class AuthProvider extends ChangeNotifier {
   User? _user;
   Profile? _profile;
   Subscription? _subscription;
+  PlanAccess? _planAccess;
   GlobalSettings _globalSettings = const GlobalSettings();
   bool _busy = false;
   String? _errorMessage;
@@ -53,6 +59,9 @@ class AuthProvider extends ChangeNotifier {
   User? get user => _user;
   Profile? get profile => _profile;
   Subscription? get subscription => _subscription;
+
+  /// Acesso efetivo (plano pago ativo ou plano gratuito de fallback).
+  PlanAccess? get planAccess => _planAccess;
   GlobalSettings get globalSettings => _globalSettings;
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
@@ -103,6 +112,7 @@ class AuthProvider extends ChangeNotifier {
         _user = null;
         _profile = null;
         _subscription = null;
+        _planAccess = null;
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return;
@@ -290,6 +300,7 @@ class AuthProvider extends ChangeNotifier {
     _user = null;
     _profile = null;
     _subscription = null;
+    _planAccess = null;
     _status = AuthStatus.unauthenticated;
     _biometricPending = false;
     notifyListeners();
@@ -376,6 +387,17 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {
       _profile = null;
       _subscription = null;
+    }
+
+    // Acesso efetivo (plano ativo ou gratuito). Falha silenciosa para não
+    // derrubar o perfil caso a coluna ainda não exista em produção.
+    try {
+      _planAccess = await _planAccessRepo.fetchEffectiveAccess(
+        userId,
+        subscriptionActive: _profile?.isSubscriptionActive ?? false,
+      );
+    } catch (_) {
+      _planAccess = null;
     }
   }
 

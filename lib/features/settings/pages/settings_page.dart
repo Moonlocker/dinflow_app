@@ -3,7 +3,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/config/app_config.dart';
-import '../../../core/theme/theme_controller.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/profile.dart';
 import '../../../repositories/affiliate_repository.dart';
@@ -280,7 +279,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final impersonation = context.watch<ImpersonationProvider>();
     final profile = impersonation.impersonatedProfile ?? auth.profile;
     final isImpersonating = impersonation.isImpersonating;
-    final themeController = context.watch<ThemeController>();
+    final whatsappAllowed = auth.planAccess?.allowWhatsappMessages ?? true;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -315,7 +314,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const _SectionTitle('Conta'),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,25 +421,6 @@ class _SettingsPageState extends State<SettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Aparência',
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: themeController.isDark,
-                onChanged: (_) => themeController.toggle(),
-                title: const Text('Tema escuro'),
-                subtitle: Text(themeController.isDark ? 'Ativado' : 'Desativado'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
                 'Assinatura',
                 style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
@@ -469,7 +449,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const _SectionTitle('Preferências'),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,133 +485,65 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const _SectionTitle('Finanças e WhatsApp'),
         AppCard(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CategorySettingsPage()),
-          ),
-          child: Row(
+          child: Column(
             children: [
-              const Icon(Icons.category_outlined),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Categorias',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      'Gerencie suas categorias de receitas e despesas',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              _SettingsNavTile(
+                icon: Icons.category_outlined,
+                title: 'Categorias',
+                subtitle: 'Gerencie suas categorias de receitas e despesas',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CategorySettingsPage()),
                 ),
               ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppCard(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const WhatsappNumbersPage()),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.phone_android),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Números de WhatsApp',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      'Adicione números extras para lançamentos',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              const Divider(height: 1),
+              _SettingsNavTile(
+                icon: Icons.phone_android,
+                title: 'Números de WhatsApp',
+                subtitle: whatsappAllowed
+                    ? 'Adicione números extras para lançamentos'
+                    : 'Disponível em planos com WhatsApp',
+                locked: !whatsappAllowed,
+                onTap: whatsappAllowed
+                    ? () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const WhatsappNumbersPage(),
+                          ),
+                        )
+                    : () => _showWhatsappLocked(context),
               ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        AppCard(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const WhatsappHelperPage()),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.chat_outlined),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'WhatsApp Oficial',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      'Lançamentos por mensagem',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
+              const Divider(height: 1),
+              _SettingsNavTile(
+                icon: Icons.chat_outlined,
+                title: 'WhatsApp Oficial',
+                subtitle: whatsappAllowed
+                    ? 'Lançamentos por mensagem'
+                    : 'Disponível em planos com WhatsApp',
+                locked: !whatsappAllowed,
+                onTap: whatsappAllowed
+                    ? () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const WhatsappHelperPage(),
+                          ),
+                        )
+                    : () => _showWhatsappLocked(context),
               ),
-              const Icon(Icons.chevron_right),
-            ],
-          ),
-        ),
-        if (_affiliateEnabled) ...[
-          const SizedBox(height: 16),
-          AppCard(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AffiliatePage()),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.card_giftcard_outlined),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Indique e Ganhe',
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        'Compartilhe seu link e ganhe pontos',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+              if (_affiliateEnabled) ...[
+                const Divider(height: 1),
+                _SettingsNavTile(
+                  icon: Icons.card_giftcard_outlined,
+                  title: 'Indique e Ganhe',
+                  subtitle: 'Compartilhe seu link e ganhe pontos',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AffiliatePage()),
                   ),
                 ),
-                const Icon(Icons.chevron_right),
               ],
-            ),
+            ],
           ),
-        ],
-        const SizedBox(height: 16),
+        ),
+        const _SectionTitle('Segurança'),
         AppCard(
           onTap: isImpersonating
               ? null
@@ -725,7 +637,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const _SectionTitle('Sobre'),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -751,6 +663,14 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ],
+    );
+  }
+
+  void _showWhatsappLocked(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('O WhatsApp não está incluído no seu plano atual.'),
+      ),
     );
   }
 
@@ -800,9 +720,76 @@ class _InfoRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-          ),
-        ],
+           ),
+         ],
+       ),
+     );
+   }
+}
+
+/// Título de seção usado para agrupar os cards de configurações.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+      child: Text(
+        label.toUpperCase(),
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
       ),
+    );
+  }
+}
+
+/// Item de navegação compacto (usado dentro dos cards agrupados).
+class _SettingsNavTile extends StatelessWidget {
+  const _SettingsNavTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.locked = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final contentColor = locked
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.colorScheme.onSurface;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      leading: Icon(icon, color: contentColor),
+      title: Text(
+        title,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: contentColor,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: Icon(locked ? Icons.lock_outline : Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }

@@ -84,6 +84,25 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     final amount =
         double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
 
+    final monthlyLimit =
+        context.read<AuthProvider>().planAccess?.maxTransactionsMonthly ?? 0;
+    if (!_isEditing && monthlyLimit > 0) {
+      final now = DateTime.now();
+      final monthCount = finance.transactions
+          .where((t) => t.date.year == now.year && t.date.month == now.month)
+          .length;
+      if (monthCount >= monthlyLimit) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Seu plano permite até $monthlyLimit transações por mês.',
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _saving = true);
     try {
       if (_isEditing) {

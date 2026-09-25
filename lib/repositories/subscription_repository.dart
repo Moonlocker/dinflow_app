@@ -10,7 +10,7 @@ class SubscriptionRepository {
     final data = await _client
         .from('plans')
         .select(
-            'id, name, price, status, recurrence, features, whatsapp_numbers_limit, stripe_product_id')
+            'id, name, price, status, recurrence, features, whatsapp_numbers_limit, stripe_product_id, is_free, allow_whatsapp_messages, max_transactions_monthly')
         .eq('status', 'Ativo')
         .order('price', ascending: true);
     return (data as List)

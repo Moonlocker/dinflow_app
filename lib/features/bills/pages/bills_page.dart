@@ -67,56 +67,13 @@ class _BillsPageState extends State<BillsPage> {
   }
 
   Future<void> _markAsPaid(Bill bill) async {
-    final amountController = TextEditingController(
-      text: bill.amount > 0 ? bill.amount.toString() : '',
-    );
-    final amount = await showDialog<double>(
+    final result = await showDialog<({double amount, bool addToTransactions})>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Registrar pagamento'),
-        content: TextField(
-          controller: amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Valor pago (R\$)'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).pop(double.tryParse(amountController.text.replaceAll(',', '.'))),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
+      builder: (context) => _PaymentDialog(bill: bill),
     );
 
-    if (amount == null || amount <= 0 || !mounted) return;
+    if (result == null || !mounted) return;
 
-    final addToTransactions = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Lançar nas transações?'),
-        content: const Text(
-          'Deseja registrar este pagamento como uma despesa?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Não'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sim'),
-          ),
-        ],
-      ),
-    );
-
-    if (!mounted) return;
     final billsProvider = context.read<BillsProvider>();
     final finance = context.read<FinanceProvider>();
     final authorNumber =
@@ -124,10 +81,13 @@ class _BillsPageState extends State<BillsPage> {
         context.read<AuthProvider>().profile?.whatsapp;
 
     try {
-      await billsProvider.markAsPaid(billId: bill.id, amount: amount);
-      if (addToTransactions == true) {
+      await billsProvider.markAsPaid(
+        billId: bill.id,
+        amount: result.amount,
+      );
+      if (result.addToTransactions) {
         await finance.addTransaction(
-          amount: amount,
+          amount: result.amount,
           type: 'expense',
           date: DateTime.now(),
           description:
@@ -268,6 +228,80 @@ class _BillsPageState extends State<BillsPage> {
             ],
         ],
       ),
+    );
+  }
+}
+
+/// Diálogo único para registrar o pagamento e, opcionalmente, lançar a despesa.
+class _PaymentDialog extends StatefulWidget {
+  const _PaymentDialog({required this.bill});
+
+  final Bill bill;
+
+  @override
+  State<_PaymentDialog> createState() => _PaymentDialogState();
+}
+
+class _PaymentDialogState extends State<_PaymentDialog> {
+  late final TextEditingController _amountController;
+  bool _addToTransactions = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: widget.bill.amount > 0 ? widget.bill.amount.toString() : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '.'));
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Informe um valor válido.')));
+      return;
+    }
+    Navigator.of(context).pop(
+      (amount: amount, addToTransactions: _addToTransactions),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Registrar pagamento'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _amountController,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Valor pago (R\$)'),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _addToTransactions,
+            onChanged: (value) => setState(() => _addToTransactions = value),
+            title: const Text('Lançar nas transações'),
+            subtitle: const Text('Registrar como despesa'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Confirmar')),
+      ],
     );
   }
 }
