@@ -8,11 +8,13 @@ import '../../auth/providers/auth_provider.dart';
 import '../../authors/providers/author_provider.dart';
 import '../../finance/providers/finance_provider.dart';
 
-Future<void> showTransactionForm(BuildContext context, {Transaction? transaction}) {
+Future<void> showTransactionForm(
+  BuildContext context, {
+  Transaction? transaction,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
     builder: (_) => TransactionFormSheet(transaction: transaction),
   );
 }
@@ -74,11 +76,13 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
     if (!_formKey.currentState!.validate()) return;
 
     final finance = context.read<FinanceProvider>();
-    final authorNumber = context.read<AuthorProvider>().effectiveWhatsapp ??
+    final authorNumber =
+        context.read<AuthorProvider>().effectiveWhatsapp ??
         context.read<AuthProvider>().profile?.whatsapp;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+    final amount =
+        double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
 
     setState(() => _saving = true);
     try {
@@ -105,13 +109,19 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
       if (!mounted) return;
       navigator.pop();
       messenger.showSnackBar(
-        SnackBar(content: Text(_isEditing ? 'Transação atualizada!' : 'Transação adicionada!')),
+        SnackBar(
+          content: Text(
+            _isEditing ? 'Transação atualizada!' : 'Transação adicionada!',
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Erro ao salvar a transação. Tente novamente.')),
+        const SnackBar(
+          content: Text('Erro ao salvar a transação. Tente novamente.'),
+        ),
       );
     }
   }
@@ -120,15 +130,19 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final categories = context.watch<FinanceProvider>().categories;
-    final available = categories.where((category) => category.type == _type).toList();
-    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+    final available = categories
+        .where((category) => category.type == _type)
+        .toList();
+    final amount =
+        double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+    final mediaQuery = MediaQuery.of(context);
 
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
       ),
       child: Form(
         key: _formKey,
@@ -139,7 +153,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
             children: [
               Text(
                 _isEditing ? 'Editar Transação' : 'Nova Transação',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 16),
               _TypeToggle(
@@ -155,12 +171,21 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Valor (R\$)', hintText: '0,00'),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Valor (R\$)',
+                  hintText: '0,00',
+                ),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
-                  final parsed = double.tryParse((value ?? '').replaceAll(',', '.'));
-                  if (parsed == null || parsed <= 0) return 'Informe um valor válido.';
+                  final parsed = double.tryParse(
+                    (value ?? '').replaceAll(',', '.'),
+                  );
+                  if (parsed == null || parsed <= 0) {
+                    return 'Informe um valor válido.';
+                  }
                   return null;
                 },
               ),
@@ -172,8 +197,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                   labelText: 'Descrição',
                   hintText: 'Ex: Almoço no restaurante',
                 ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Informe uma descrição.' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Informe uma descrição.'
+                    : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -201,7 +227,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                     ),
                 ],
                 onChanged: (value) => setState(() => _categoryId = value),
-                validator: (value) => value == null ? 'Selecione uma categoria.' : null,
+                validator: (value) =>
+                    value == null ? 'Selecione uma categoria.' : null,
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -228,12 +255,16 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                     _installments = value ? 2 : 1;
                   }),
                   title: const Text('Parcelamento'),
-                  subtitle: const Text('Dividir esta transação em parcelas mensais'),
+                  subtitle: const Text(
+                    'Dividir esta transação em parcelas mensais',
+                  ),
                 ),
                 if (_isRecurring)
                   DropdownButtonFormField<int>(
                     initialValue: _installments,
-                    decoration: const InputDecoration(labelText: 'Número de parcelas'),
+                    decoration: const InputDecoration(
+                      labelText: 'Número de parcelas',
+                    ),
                     items: [
                       for (var i = 2; i <= 12; i++)
                         DropdownMenuItem(
@@ -241,7 +272,8 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                           child: Text('${i}x de ${formatCurrency(amount / i)}'),
                         ),
                     ],
-                    onChanged: (value) => setState(() => _installments = value ?? 2),
+                    onChanged: (value) =>
+                        setState(() => _installments = value ?? 2),
                   ),
               ],
               const SizedBox(height: 20),
@@ -254,7 +286,10 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : Text(_isEditing ? 'Atualizar' : 'Adicionar'),
                     ),
@@ -262,7 +297,9 @@ class _TransactionFormSheetState extends State<TransactionFormSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Cancelar'),
                     ),
                   ),
@@ -307,7 +344,12 @@ class _TypeToggle extends StatelessWidget {
     );
   }
 
-  Widget _segment(BuildContext context, String label, String segmentValue, Color color) {
+  Widget _segment(
+    BuildContext context,
+    String label,
+    String segmentValue,
+    Color color,
+  ) {
     final selected = value == segmentValue;
     return Expanded(
       child: GestureDetector(
@@ -324,7 +366,9 @@ class _TypeToggle extends StatelessWidget {
             label,
             style: TextStyle(
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Theme.of(context).colorScheme.onSurfaceVariant,
+              color: selected
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ),

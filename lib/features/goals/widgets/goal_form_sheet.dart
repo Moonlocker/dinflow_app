@@ -9,7 +9,6 @@ Future<void> showGoalForm(BuildContext context, {Goal? goal}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
     builder: (_) => GoalFormSheet(goal: goal),
   );
 }
@@ -97,15 +96,18 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
       'title': _titleController.text.trim(),
       'description': _descriptionController.text.trim(),
       'type': _type,
-      'target_amount': double.tryParse(_targetController.text.replaceAll(',', '.')) ?? 0,
+      'target_amount':
+          double.tryParse(_targetController.text.replaceAll(',', '.')) ?? 0,
       'current_amount': isCategoryBudget
           ? 0
-          : (double.tryParse(_currentController.text.replaceAll(',', '.')) ?? 0),
+          : (double.tryParse(_currentController.text.replaceAll(',', '.')) ??
+                0),
       'due_date': _dueDate == null ? null : _dateOnly(_dueDate!),
       'category_id': isCategoryBudget ? _categoryId : null,
       'period': isCategoryBudget ? _period : null,
-      'alert_threshold':
-          isCategoryBudget ? double.tryParse(_thresholdController.text) ?? 90 : null,
+      'alert_threshold': isCategoryBudget
+          ? double.tryParse(_thresholdController.text) ?? 90
+          : null,
     };
 
     setState(() => _saving = true);
@@ -118,13 +120,17 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
       if (!mounted) return;
       navigator.pop();
       messenger.showSnackBar(
-        SnackBar(content: Text(_isEditing ? 'Meta atualizada!' : 'Meta adicionada!')),
+        SnackBar(
+          content: Text(_isEditing ? 'Meta atualizada!' : 'Meta adicionada!'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(
-        const SnackBar(content: Text('Erro ao salvar a meta. Tente novamente.')),
+        const SnackBar(
+          content: Text('Erro ao salvar a meta. Tente novamente.'),
+        ),
       );
     }
   }
@@ -132,16 +138,20 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final expenseCategories =
-        context.watch<FinanceProvider>().categories.where((c) => c.type == 'expense').toList();
+    final expenseCategories = context
+        .watch<FinanceProvider>()
+        .categories
+        .where((c) => c.type == 'expense')
+        .toList();
     final isCategoryBudget = _type == 'category_budget';
+    final mediaQuery = MediaQuery.of(context);
 
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
       ),
       child: Form(
         key: _formKey,
@@ -152,7 +162,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
             children: [
               Text(
                 _isEditing ? 'Editar Meta' : 'Nova Meta Financeira',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -162,8 +174,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   labelText: 'Título da Meta',
                   hintText: 'Ex: Economizar para viagem',
                 ),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? 'Informe um título.' : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Informe um título.'
+                    : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -171,16 +184,22 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                 decoration: const InputDecoration(labelText: 'Tipo de Meta'),
                 items: [
                   for (final entry in _goalTypes.entries)
-                    DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
                 ],
-                onChanged: (value) => setState(() => _type = value ?? 'savings'),
+                onChanged: (value) =>
+                    setState(() => _type = value ?? 'savings'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 2,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(labelText: 'Descrição (opcional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Descrição (opcional)',
+                ),
               ),
               const SizedBox(height: 12),
               Row(
@@ -189,14 +208,22 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _targetController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: InputDecoration(
-                        labelText: _type == 'expense_limit' ? 'Limite (R\$)' : 'Valor Meta (R\$)',
+                        labelText: _type == 'expense_limit'
+                            ? 'Limite (R\$)'
+                            : 'Valor Meta (R\$)',
                         hintText: '0,00',
                       ),
                       validator: (value) {
-                        final parsed = double.tryParse((value ?? '').replaceAll(',', '.'));
-                        if (parsed == null || parsed <= 0) return 'Valor inválido.';
+                        final parsed = double.tryParse(
+                          (value ?? '').replaceAll(',', '.'),
+                        );
+                        if (parsed == null || parsed <= 0) {
+                          return 'Valor inválido.';
+                        }
                         return null;
                       },
                     ),
@@ -206,10 +233,13 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                     Expanded(
                       child: TextFormField(
                         controller: _currentController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: InputDecoration(
-                          labelText:
-                              _type == 'expense_limit' ? 'Gasto Atual (R\$)' : 'Valor Atual (R\$)',
+                          labelText: _type == 'expense_limit'
+                              ? 'Gasto Atual (R\$)'
+                              : 'Valor Atual (R\$)',
                           hintText: '0,00',
                         ),
                       ),
@@ -221,13 +251,19 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _categoryId,
-                  decoration: const InputDecoration(labelText: 'Categoria de Despesa'),
+                  decoration: const InputDecoration(
+                    labelText: 'Categoria de Despesa',
+                  ),
                   items: [
                     for (final category in expenseCategories)
-                      DropdownMenuItem(value: category.id, child: Text(category.name)),
+                      DropdownMenuItem(
+                        value: category.id,
+                        child: Text(category.name),
+                      ),
                   ],
                   onChanged: (value) => setState(() => _categoryId = value),
-                  validator: (value) => value == null ? 'Selecione uma categoria.' : null,
+                  validator: (value) =>
+                      value == null ? 'Selecione uma categoria.' : null,
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -237,12 +273,25 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                         initialValue: _period,
                         decoration: const InputDecoration(labelText: 'Período'),
                         items: const [
-                          DropdownMenuItem(value: 'daily', child: Text('Diário')),
-                          DropdownMenuItem(value: 'weekly', child: Text('Semanal')),
-                          DropdownMenuItem(value: 'monthly', child: Text('Mensal')),
-                          DropdownMenuItem(value: 'yearly', child: Text('Anual')),
+                          DropdownMenuItem(
+                            value: 'daily',
+                            child: Text('Diário'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'weekly',
+                            child: Text('Semanal'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'monthly',
+                            child: Text('Mensal'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'yearly',
+                            child: Text('Anual'),
+                          ),
                         ],
-                        onChanged: (value) => setState(() => _period = value ?? 'monthly'),
+                        onChanged: (value) =>
+                            setState(() => _period = value ?? 'monthly'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -250,7 +299,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                       child: TextFormField(
                         controller: _thresholdController,
                         keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'Alerta em (%)'),
+                        decoration: const InputDecoration(
+                          labelText: 'Alerta em (%)',
+                        ),
                       ),
                     ),
                   ],
@@ -262,7 +313,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   onTap: _pickDueDate,
                   borderRadius: BorderRadius.circular(8),
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Data de Vencimento (opcional)'),
+                    decoration: const InputDecoration(
+                      labelText: 'Data de Vencimento (opcional)',
+                    ),
                     child: Row(
                       children: [
                         const Icon(Icons.calendar_today_outlined, size: 18),
@@ -287,7 +340,10 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : Text(_isEditing ? 'Atualizar' : 'Criar Meta'),
                     ),
@@ -295,7 +351,9 @@ class _GoalFormSheetState extends State<GoalFormSheet> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _saving ? null : () => Navigator.of(context).pop(),
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.of(context).pop(),
                       child: const Text('Cancelar'),
                     ),
                   ),

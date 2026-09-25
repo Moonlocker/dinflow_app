@@ -16,7 +16,7 @@ import '../../dashboard/widgets/summary_card.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../services/report_exporter.dart';
 
-enum _PeriodType { last6, year, specific }
+enum _PeriodType { monthly, last6, year, specific }
 
 enum _ReportTab { expenses, income }
 
@@ -50,7 +50,7 @@ class _ReportsPageState extends State<ReportsPage> {
     Color(0xFF14B8A6),
   ];
 
-  _PeriodType _periodType = _PeriodType.last6;
+  _PeriodType _periodType = _PeriodType.monthly;
   _ReportTab _reportTab = _ReportTab.expenses;
   int? _year;
   DateTimeRange? _range;
@@ -86,6 +86,9 @@ class _ReportsPageState extends State<ReportsPage> {
   bool _inPeriod(Transaction transaction, FinanceProvider finance) {
     final now = finance.currentDate;
     switch (_periodType) {
+      case _PeriodType.monthly:
+        return transaction.date.year == now.year &&
+            transaction.date.month == now.month;
       case _PeriodType.last6:
         final start = DateTime(now.year, now.month - 5, 1);
         return !transaction.date.isBefore(start);
@@ -144,6 +147,10 @@ class _ReportsPageState extends State<ReportsPage> {
     }
 
     switch (_periodType) {
+      case _PeriodType.monthly:
+        for (var i = 5; i >= 0; i--) {
+          addMonth(DateTime(now.year, now.month - i, 1));
+        }
       case _PeriodType.last6:
         for (var i = 5; i >= 0; i--) {
           addMonth(DateTime(now.year, now.month - i, 1));
@@ -196,6 +203,8 @@ class _ReportsPageState extends State<ReportsPage> {
 
   String _periodLabel(FinanceProvider finance) {
     switch (_periodType) {
+      case _PeriodType.monthly:
+        return 'Mensal · ${formatMonthYear(finance.currentDate)}';
       case _PeriodType.last6:
         return 'Últimos 6 meses';
       case _PeriodType.year:
@@ -271,16 +280,40 @@ class _ReportsPageState extends State<ReportsPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: [
-        MonthSelector(
-          date: finance.currentDate,
-          onPrevious: finance.previousMonth,
-          onNext: finance.nextMonth,
+        _PeriodPickerCard(
+          periodType: _periodType,
+          onPeriodChanged: (value) async {
+            setState(() => _periodType = value);
+            if (_periodType == _PeriodType.specific && _range == null) {
+              await _pickRange();
+            }
+          },
+          year: _year,
+          years: years,
+          onYearChanged: (value) => setState(() => _year = value),
+          range: _range,
+          onPickRange: _pickRange,
         ),
         const SizedBox(height: 16),
+        if (_periodType == _PeriodType.monthly)
+          MonthSelector(
+            date: finance.currentDate,
+            onPrevious: finance.previousMonth,
+            onNext: finance.nextMonth,
+          )
+        else
+          _PeriodLabelRow(label: _periodLabel(finance)),
+        const SizedBox(height: 16),
         _MonthBalanceCard(
-          currentMonth: finance.currentDate,
-          income: finance.monthlyIncome,
-          expenses: finance.monthlyExpenses,
+          title: _periodType == _PeriodType.monthly
+              ? 'Saldo em ${formatMonth(finance.currentDate)}'
+              : 'Saldo no período',
+          income: _periodType == _PeriodType.monthly
+              ? finance.monthlyIncome
+              : periodIncome,
+          expenses: _periodType == _PeriodType.monthly
+              ? finance.monthlyExpenses
+              : periodExpense,
         ),
         const SizedBox(height: 16),
         _ReportDonutCard(
@@ -314,21 +347,6 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        _PeriodPickerCard(
-          periodType: _periodType,
-          onPeriodChanged: (value) async {
-            setState(() => _periodType = value);
-            if (_periodType == _PeriodType.specific && _range == null) {
-              await _pickRange();
-            }
-          },
-          year: _year,
-          years: years,
-          onYearChanged: (value) => setState(() => _year = value),
-          range: _range,
-          onPickRange: _pickRange,
         ),
         const SizedBox(height: 16),
         Row(
@@ -426,15 +444,15 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 }
 
-/// Card de saldo do mês com barras de progresso de receitas e despesas.
+/// Card de saldo do mês (ou do período) com barras de progresso de receitas e despesas.
 class _MonthBalanceCard extends StatelessWidget {
   const _MonthBalanceCard({
-    required this.currentMonth,
+    required this.title,
     required this.income,
     required this.expenses,
   });
 
-  final DateTime currentMonth;
+  final String title;
   final double income;
   final double expenses;
 
@@ -460,7 +478,7 @@ class _MonthBalanceCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Saldo em ${formatMonth(currentMonth)}',
+                  title,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -824,6 +842,10 @@ class _PeriodPickerCard extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<_PeriodType>(
               segments: const [
+                ButtonSegment(
+                  value: _PeriodType.monthly,
+                  label: Text('Mensal'),
+                ),
                 ButtonSegment(value: _PeriodType.last6, label: Text('6 meses')),
                 ButtonSegment(value: _PeriodType.year, label: Text('Ano')),
                 ButtonSegment(
@@ -864,6 +886,54 @@ class _PeriodPickerCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Rótulo centralizado indicando o período ativo (usado quando não é "Mensal").
+class _PeriodLabelRow extends StatelessWidget {
+  const _PeriodLabelRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.6,
+            ),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: theme.colorScheme.outline),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.date_range_outlined,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

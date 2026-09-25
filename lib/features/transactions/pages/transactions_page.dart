@@ -71,16 +71,23 @@ class _TransactionsPageState extends State<TransactionsPage> {
     return finance.transactions.where((transaction) {
       final description = (transaction.description ?? '').toLowerCase();
       if (term.isNotEmpty && !description.contains(term)) return false;
-      if (_filters.type != 'all' && transaction.type != _filters.type) return false;
-      if (_filters.categoryId != null && transaction.categoryId != _filters.categoryId) {
+      if (_filters.type != 'all' && transaction.type != _filters.type) {
+        return false;
+      }
+      if (_filters.categoryId != null &&
+          transaction.categoryId != _filters.categoryId) {
         return false;
       }
       if (_filters.authorNumber != null &&
           transaction.authorNumber != _filters.authorNumber) {
         return false;
       }
-      if (_filters.from != null && transaction.date.isBefore(_filters.from!)) return false;
-      if (_filters.to != null && transaction.date.isAfter(_filters.to!)) return false;
+      if (_filters.from != null && transaction.date.isBefore(_filters.from!)) {
+        return false;
+      }
+      if (_filters.to != null && transaction.date.isAfter(_filters.to!)) {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -97,7 +104,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
     final result = await showModalBottomSheet<_Filters>(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
       builder: (_) => _TransactionFiltersSheet(
         initial: _filters,
         categories: context.read<FinanceProvider>().categories,
@@ -134,9 +140,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
     try {
       await context.read<FinanceProvider>().deleteTransaction(transaction.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Transação excluída!')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Transação excluída!')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -157,8 +162,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
     final filtered = _filtered(finance);
     final totalPages = (filtered.length / _perPage).ceil();
     final currentPage = _page.clamp(1, totalPages == 0 ? 1 : totalPages);
-    final pageItems =
-        filtered.skip((currentPage - 1) * _perPage).take(_perPage).toList();
+    final pageItems = filtered
+        .skip((currentPage - 1) * _perPage)
+        .take(_perPage)
+        .toList();
 
     final totalIncome = filtered
         .where((t) => t.isIncome)
@@ -180,7 +187,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
         children: [
           Text(
             'Transações',
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -262,7 +271,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   ),
                 if (_filters.categoryId != null)
                   _FilterChip(
-                    label: finance.categoryById(_filters.categoryId)?.name ?? 'Categoria',
+                    label:
+                        finance.categoryById(_filters.categoryId)?.name ??
+                        'Categoria',
                     onRemove: () => setState(() {
                       _filters = _Filters(
                         type: _filters.type,
@@ -320,10 +331,15 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     _TransactionRow(
                       transaction: pageItems[i],
                       categoryName:
-                          finance.categoryById(pageItems[i].categoryId)?.name ?? 'N/A',
-                      categoryColor:
-                          finance.categoryById(pageItems[i].categoryId)?.parsedColor,
-                      onEdit: () => showTransactionForm(context, transaction: pageItems[i]),
+                          finance.categoryById(pageItems[i].categoryId)?.name ??
+                          'N/A',
+                      categoryColor: finance
+                          .categoryById(pageItems[i].categoryId)
+                          ?.parsedColor,
+                      onEdit: () => showTransactionForm(
+                        context,
+                        transaction: pageItems[i],
+                      ),
                       onDelete: () => _confirmDelete(pageItems[i]),
                     ),
                   ],
@@ -377,7 +393,9 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AppCard(
-      color: color.withValues(alpha: theme.brightness == Brightness.dark ? 0.16 : 0.08),
+      color: color.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.16 : 0.08,
+      ),
       borderColor: color.withValues(alpha: 0.25),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,7 +414,9 @@ class _MiniStat extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           if (wide) const SizedBox(height: 0),
@@ -440,7 +460,9 @@ class _TransactionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = transaction.isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final accent = transaction.isIncome
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
     final color = categoryColor ?? accent;
 
     return Padding(
@@ -467,7 +489,9 @@ class _TransactionRow extends StatelessWidget {
                   transaction.description ?? 'Sem descrição',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -536,7 +560,8 @@ class _TransactionFiltersSheet extends StatefulWidget {
   final List<AuthorOption> authors;
 
   @override
-  State<_TransactionFiltersSheet> createState() => _TransactionFiltersSheetState();
+  State<_TransactionFiltersSheet> createState() =>
+      _TransactionFiltersSheetState();
 }
 
 class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
@@ -551,8 +576,9 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      initialDateRange:
-          (_from != null && _to != null) ? DateTimeRange(start: _from!, end: _to!) : null,
+      initialDateRange: (_from != null && _to != null)
+          ? DateTimeRange(start: _from!, end: _to!)
+          : null,
     );
     if (picked != null) {
       setState(() {
@@ -565,15 +591,23 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mediaQuery = MediaQuery.of(context);
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             'Filtros',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 16),
           const Text('Tipo'),
@@ -612,7 +646,9 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
                   DropdownMenuItem(
                     value: author.whatsapp,
                     child: Text(
-                      author.isMain ? '${author.name} (principal)' : author.name,
+                      author.isMain
+                          ? '${author.name} (principal)'
+                          : author.name,
                     ),
                   ),
               ],

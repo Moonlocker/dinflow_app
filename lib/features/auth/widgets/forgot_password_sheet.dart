@@ -7,7 +7,6 @@ Future<void> showForgotPasswordSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
     builder: (_) => const _ForgotPasswordSheet(),
   );
 }
@@ -32,9 +31,9 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Digite um email válido.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Digite um email válido.')));
       return;
     }
     final auth = context.read<AuthProvider>();
@@ -54,13 +53,14 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final busy = context.watch<AuthProvider>().busy;
+    final mediaQuery = MediaQuery.of(context);
 
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
         top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -72,7 +72,9 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
               const SizedBox(width: 8),
               Text(
                 _sent ? 'Email Enviado!' : 'Recuperar Senha',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -121,7 +123,10 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                         ? const SizedBox(
                             height: 18,
                             width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Enviar Email'),
                   ),

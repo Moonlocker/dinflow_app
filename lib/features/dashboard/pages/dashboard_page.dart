@@ -8,11 +8,7 @@ import '../../../widgets/month_selector.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../authors/providers/author_provider.dart';
 import '../../bills/providers/bills_provider.dart';
-import '../../chat/pages/chat_page.dart';
 import '../../finance/providers/finance_provider.dart';
-import '../../goals/widgets/goal_form_sheet.dart';
-import '../../transactions/widgets/transaction_form_sheet.dart';
-import '../widgets/quick_actions_card.dart';
 import '../widgets/recent_transactions_card.dart';
 
 /// Dashboard do DinFlow — tela principal no estilo dos designs de referência:
@@ -162,32 +158,6 @@ class _DashboardPageState extends State<DashboardPage> {
           RecentTransactionsCard(
             transactions: dashboard.recentTransactions,
             onViewAll: () => widget.onOpenPage?.call('transactions'),
-          ),
-          const SizedBox(height: 16),
-          QuickActionsCard(
-            actions: [
-              QuickAction(
-                label: 'Nova Transação',
-                icon: Icons.add,
-                onTap: () => showTransactionForm(context),
-              ),
-              QuickAction(
-                label: 'Nova Meta',
-                icon: Icons.flag_outlined,
-                onTap: () => showGoalForm(context),
-              ),
-              QuickAction(
-                label: 'Relatórios',
-                icon: Icons.bar_chart,
-                onTap: () => widget.onOpenPage?.call('reports'),
-              ),
-              QuickAction(
-                label: 'Chat IA',
-                icon: Icons.smart_toy_outlined,
-                onTap: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const ChatPage())),
-              ),
-            ],
           ),
         ],
       ),
