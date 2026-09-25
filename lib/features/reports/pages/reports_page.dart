@@ -507,6 +507,7 @@ class _ProgressLine extends StatelessWidget {
           ),
         ),
         Expanded(
+          flex: 3,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -519,13 +520,19 @@ class _ProgressLine extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
+          flex: 2,
+          child: Align(
             alignment: Alignment.centerRight,
-            child: Text(
-              formatCurrency(value),
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatCurrency(value),
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -663,7 +670,7 @@ class _ReportDonutCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Text(
-                        '${isIncome ? '+' : '-'} ${formatCurrency(total).replaceFirst(r'R$', '').trim()}',
+                        '${isIncome ? '+' : '-'} ${formatCurrency(total)}',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -725,41 +732,57 @@ class _DonutCategoryRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              total.category.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '${(percent * 100).round()}%',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
+            flex: 3,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    total.category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${(percent * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+          Expanded(
+            flex: 2,
+            child: Align(
               alignment: Alignment.centerRight,
-              child: Text(
-                '${isIncome ? '+' : '-'} ${formatCurrency(total.total).replaceFirst(r'R$', '').trim()}',
-                maxLines: 1,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: valueColor,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${isIncome ? '+' : '-'} ${formatCurrency(total.total)}',
+                  maxLines: 1,
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: valueColor,
+                  ),
                 ),
               ),
             ),

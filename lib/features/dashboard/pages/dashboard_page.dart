@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/category_icons.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../models/transaction.dart';
 import '../../../widgets/capsule_selector.dart';
 import '../../../widgets/month_selector.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -538,8 +539,34 @@ class _CategoryCarousel extends StatelessWidget {
             value: formatCurrency(item.total),
             valueColor: accent,
             hidden: hidden,
+            onTap: () => _showCategoryDetail(context, item, color),
           );
         },
+      ),
+    );
+  }
+
+  void _showCategoryDetail(
+    BuildContext context,
+    CategoryTotal item,
+    Color color,
+  ) {
+    final transactions = context.read<FinanceProvider>().categoryTransactions(
+      item.category.id,
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _CategoryTransactionsSheet(
+        name: item.category.name,
+        icon: categoryIconFor(item.category.icon),
+        color: color,
+        isIncome: isIncome,
+        total: item.total,
+        transactions: transactions,
       ),
     );
   }
@@ -556,6 +583,7 @@ class _CategoryRingCard extends StatelessWidget {
     required this.value,
     required this.valueColor,
     required this.hidden,
+    required this.onTap,
   });
 
   final String name;
@@ -566,80 +594,227 @@ class _CategoryRingCard extends StatelessWidget {
   final String value;
   final Color valueColor;
   final bool hidden;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      width: 118,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+    return Material(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outline),
+        side: BorderSide(color: theme.colorScheme.outline),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 62,
-            height: 62,
-            child: Stack(
-              alignment: Alignment.center,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 118,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox.expand(
-                  child: CustomPaint(
-                    painter: _RingPainter(
-                      value: percent,
-                      color: color,
-                      trackColor: theme.colorScheme.surfaceContainerHighest,
-                    ),
+                SizedBox(
+                  width: 62,
+                  height: 62,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox.expand(
+                        child: CustomPaint(
+                          painter: _RingPainter(
+                            value: percent,
+                            color: color,
+                            trackColor:
+                                theme.colorScheme.surfaceContainerHighest,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        (percent * 100).round().toString(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  (percent * 100).round().toString(),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 13, color: color),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    hidden
+                        ? '••••••'
+                        : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
+                    maxLines: 1,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: valueColor,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+        ),
+      ),
+    );
+  }
+}
+
+/// Modal com os lançamentos que compõem o total de uma categoria.
+class _CategoryTransactionsSheet extends StatelessWidget {
+  const _CategoryTransactionsSheet({
+    required this.name,
+    required this.icon,
+    required this.color,
+    required this.isIncome,
+    required this.total,
+    required this.transactions,
+  });
+
+  final String name;
+  final IconData icon;
+  final Color color;
+  final bool isIncome;
+  final double total;
+  final List<Transaction> transactions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = isIncome ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
             children: [
-              Icon(icon, size: 13, color: color),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      '${transactions.length} ${transactions.length == 1 ? 'lançamento' : 'lançamentos'} no mês',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${isIncome ? '+' : '-'} ${formatCurrency(total)}',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: accent,
                 ),
               ),
             ],
           ),
-          FittedBox(
-            fit: BoxFit.scaleDown,
+        ),
+        Divider(height: 1, color: theme.colorScheme.outline),
+        if (transactions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
             child: Text(
-              hidden
-                  ? '••••••'
-                  : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
-              maxLines: 1,
-              style: theme.textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: valueColor,
+              'Nenhum lançamento neste período.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+          )
+        else
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              itemCount: transactions.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final transaction = transactions[index];
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            transaction.description ?? 'Sem descrição',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            formatDateOnly(transaction.date.toIso8601String()),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${isIncome ? '+' : '-'} ${formatCurrency(transaction.amount)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }

@@ -28,9 +28,9 @@ class FinanceProvider extends ChangeNotifier {
     TransactionsRepository? transactionsRepository,
     GoalsRepository? goalsRepository,
     CategoriesRepository? categoriesRepository,
-  })  : _transactions = transactionsRepository ?? TransactionsRepository(),
-        _goals = goalsRepository ?? GoalsRepository(),
-        _categories = categoriesRepository ?? CategoriesRepository();
+  }) : _transactions = transactionsRepository ?? TransactionsRepository(),
+       _goals = goalsRepository ?? GoalsRepository(),
+       _categories = categoriesRepository ?? CategoriesRepository();
 
   final TransactionsRepository _transactions;
   final GoalsRepository _goals;
@@ -57,7 +57,9 @@ class FinanceProvider extends ChangeNotifier {
   String? get userId => _userId;
   String? get authorFilter => _authorFilter;
   bool get hasData =>
-      _allTransactions.isNotEmpty || _allGoals.isNotEmpty || _allCategories.isNotEmpty;
+      _allTransactions.isNotEmpty ||
+      _allGoals.isNotEmpty ||
+      _allCategories.isNotEmpty;
 
   /// Define o autor (número de WhatsApp) usado nos cálculos do dashboard.
   void setAuthorFilter(String? value) {
@@ -113,8 +115,9 @@ class FinanceProvider extends ChangeNotifier {
     if (_subscribedUserId == userId && _channel != null) return;
     _unsubscribe();
     _subscribedUserId = userId;
-    final channel = Supabase.instance.client
-        .channel(realtimeChannelName('finance', userId));
+    final channel = Supabase.instance.client.channel(
+      realtimeChannelName('finance', userId),
+    );
     for (final table in ['transactions', 'goals', 'categories']) {
       channel.onPostgresChanges(
         event: PostgresChangeEvent.all,
@@ -252,7 +255,10 @@ class FinanceProvider extends ChangeNotifier {
     await _reloadGoals(userId);
   }
 
-  Future<void> updateGoal({required String id, required Map<String, dynamic> values}) async {
+  Future<void> updateGoal({
+    required String id,
+    required Map<String, dynamic> values,
+  }) async {
     final userId = _userId;
     if (userId == null) throw StateError('Usuário não autenticado');
     await _goals.updateGoal(id: id, userId: userId, values: values);
@@ -295,11 +301,13 @@ class FinanceProvider extends ChangeNotifier {
   double _categorySpending(String categoryId, String? period) {
     final range = _periodRange(period);
     return _allTransactions
-        .where((transaction) =>
-            transaction.type == 'expense' &&
-            transaction.categoryId == categoryId &&
-            !transaction.date.isBefore(range.$1) &&
-            !transaction.date.isAfter(range.$2))
+        .where(
+          (transaction) =>
+              transaction.type == 'expense' &&
+              transaction.categoryId == categoryId &&
+              !transaction.date.isBefore(range.$1) &&
+              !transaction.date.isAfter(range.$2),
+        )
         .fold(0.0, (sum, transaction) => sum + transaction.amount);
   }
 
@@ -311,7 +319,9 @@ class FinanceProvider extends ChangeNotifier {
       case 'daily':
         return (today, today.add(endOfDay));
       case 'weekly':
-        final start = today.subtract(Duration(days: now.weekday - DateTime.monday));
+        final start = today.subtract(
+          Duration(days: now.weekday - DateTime.monday),
+        );
         return (start, start.add(Duration(days: 6)).add(endOfDay));
       case 'yearly':
         final start = DateTime(now.year, 1, 1);
@@ -346,7 +356,10 @@ class FinanceProvider extends ChangeNotifier {
     await _reloadCategories(userId);
   }
 
-  Future<void> updateCategory({required String id, required Map<String, dynamic> values}) async {
+  Future<void> updateCategory({
+    required String id,
+    required Map<String, dynamic> values,
+  }) async {
     final userId = _userId;
     if (userId == null) throw StateError('Usuário não autenticado');
     await _categories.updateCategory(id: id, userId: userId, values: values);
@@ -356,7 +369,11 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> deleteCategory(String id) async {
     final userId = _userId;
     if (userId == null) throw StateError('Usuário não autenticado');
-    await _categories.deleteCategory(id: id, userId: userId, categories: _allCategories);
+    await _categories.deleteCategory(
+      id: id,
+      userId: userId,
+      categories: _allCategories,
+    );
     await _reloadCategories(userId);
     _allTransactions = await _transactions.fetchTransactions(userId);
     notifyListeners();
@@ -384,21 +401,29 @@ class FinanceProvider extends ChangeNotifier {
 
   double get previousMonthIncome {
     final previous = DateTime(_currentDate.year, _currentDate.month - 1, 1);
-    return _sumByType(_transactionsFor(previous.year, previous.month), 'income');
+    return _sumByType(
+      _transactionsFor(previous.year, previous.month),
+      'income',
+    );
   }
 
   double get previousMonthExpenses {
     final previous = DateTime(_currentDate.year, _currentDate.month - 1, 1);
-    return _sumByType(_transactionsFor(previous.year, previous.month), 'expense');
+    return _sumByType(
+      _transactionsFor(previous.year, previous.month),
+      'expense',
+    );
   }
 
-  double get previousMonthBalance => previousMonthIncome - previousMonthExpenses;
+  double get previousMonthBalance =>
+      previousMonthIncome - previousMonthExpenses;
 
   /// Saldo acumulado considerando todas as transações (receitas - despesas).
   double get accumulatedBalance => _filteredTransactions.fold<double>(
-        0,
-        (sum, transaction) => sum + (transaction.isIncome ? transaction.amount : -transaction.amount),
-      );
+    0,
+    (sum, transaction) =>
+        sum + (transaction.isIncome ? transaction.amount : -transaction.amount),
+  );
 
   double _sumByType(List<Transaction> list, String type) {
     return list
@@ -415,11 +440,14 @@ class FinanceProvider extends ChangeNotifier {
       _filteredTransactions.take(5).toList();
 
   List<Goal> get activeGoals => _allGoals
-      .where((goal) => !goal.isCompleted && goal.currentAmount < goal.targetAmount)
+      .where(
+        (goal) => !goal.isCompleted && goal.currentAmount < goal.targetAmount,
+      )
       .take(3)
       .toList();
 
-  int get completedGoalsCount => _allGoals.where((goal) => goal.isCompleted).length;
+  int get completedGoalsCount =>
+      _allGoals.where((goal) => goal.isCompleted).length;
 
   int get totalGoals => _allGoals.length;
 
@@ -444,6 +472,16 @@ class FinanceProvider extends ChangeNotifier {
     }
     totals.sort((a, b) => b.total.compareTo(a.total));
     return totals;
+  }
+
+  /// Transações do mês atual de uma categoria (ordenadas da mais recente),
+  /// usadas no detalhamento ao tocar nos cards de categoria.
+  List<Transaction> categoryTransactions(String categoryId) {
+    final list = _monthTransactions
+        .where((transaction) => transaction.categoryId == categoryId)
+        .toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
   }
 
   Category? categoryById(String? id) {

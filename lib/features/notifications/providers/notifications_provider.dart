@@ -4,19 +4,26 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/realtime/realtime_utils.dart';
+import '../../../core/services/local_notification_service.dart';
 import '../../../models/app_notification.dart';
 import '../../../repositories/notifications_repository.dart';
 
 /// Estado das notificações do usuário (sino do cabeçalho).
 class NotificationsProvider extends ChangeNotifier {
-  NotificationsProvider({NotificationsRepository? repository})
-      : _repository = repository ?? NotificationsRepository();
+  NotificationsProvider({
+    NotificationsRepository? repository,
+    LocalNotificationService? localNotifications,
+  }) : _repository = repository ?? NotificationsRepository(),
+       _localNotifications =
+           localNotifications ?? LocalNotificationService.instance;
 
   final NotificationsRepository _repository;
+  final LocalNotificationService _localNotifications;
 
   List<AppNotification> _items = const [];
   bool _loading = false;
   String? _userId;
+  String? _seededUserId;
   RealtimeChannel? _channel;
   String? _subscribedUserId;
   Timer? _debounce;
@@ -32,7 +39,17 @@ class NotificationsProvider extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
+      final previousIds = _items.map((item) => item.id).toSet();
+      final isFirstForUser = _seededUserId != userId;
       _items = await _repository.fetch(userId);
+      _seededUserId = userId;
+      if (!isFirstForUser) {
+        for (final item in _items) {
+          if (!item.isRead && !previousIds.contains(item.id)) {
+            _localNotifications.show(title: item.title, body: item.body);
+          }
+        }
+      }
     } catch (_) {
       // Mantém a lista atual em caso de erro.
     }
