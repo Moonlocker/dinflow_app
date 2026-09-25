@@ -41,6 +41,7 @@ class _AppShellState extends State<AppShell> {
   String _currentKey = 'dashboard';
   ImpersonationProvider? _impersonation;
   String? _loadedUserId;
+  bool _autoOpenedAdmin = false;
 
   @override
   void initState() {
@@ -51,7 +52,21 @@ class _AppShellState extends State<AppShell> {
       if (!mounted) return;
       context.read<PageVisibilityProvider>().load();
       _loadCurrentUser(force: false);
+      _maybeOpenAdminPanel();
     });
+  }
+
+  /// Abre automaticamente o painel admin (como o webapp faz no `/superadmin`)
+  /// quando o usuário logado é superadmin e não há impersonation em curso.
+  void _maybeOpenAdminPanel() {
+    if (_autoOpenedAdmin) return;
+    if (_impersonation?.isImpersonating ?? false) return;
+    final auth = context.read<AuthProvider>();
+    final isSuperadmin = auth.profile?.isSuperadmin ?? false;
+    if (!isSuperadmin) return;
+    _autoOpenedAdmin = true;
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const SuperAdminPage()));
   }
 
   @override
@@ -62,7 +77,8 @@ class _AppShellState extends State<AppShell> {
 
   void _onImpersonationChanged() {
     if (!mounted) return;
-    final target = context.read<ImpersonationProvider>().impersonatedUserId ??
+    final target =
+        context.read<ImpersonationProvider>().impersonatedUserId ??
         context.read<AuthProvider>().user?.id;
     if (target == _loadedUserId) {
       // Apenas os dados do perfil mudaram (ex.: nome/avatar); não recarrega tudo.
@@ -87,10 +103,10 @@ class _AppShellState extends State<AppShell> {
     context.read<NotificationsProvider>().load(userId, force: force);
     context.read<EducationProvider>().load(force: force);
     context.read<AuthorProvider>().load(
-          userId: userId,
-          mainWhatsapp: profile?.whatsapp,
-          mainName: profile?.name,
-        );
+      userId: userId,
+      mainWhatsapp: profile?.whatsapp,
+      mainName: profile?.name,
+    );
   }
 
   void _openPage(String key) {
@@ -134,7 +150,8 @@ class _AppShellState extends State<AppShell> {
     final auth = context.watch<AuthProvider>();
     final activeProfile = impersonation.impersonatedProfile ?? auth.profile;
     // Sem plano ativo, apenas Configurações fica acessível (como no webapp).
-    final requiresSubscription = activeProfile != null &&
+    final requiresSubscription =
+        activeProfile != null &&
         !activeProfile.isSubscriptionActive &&
         !impersonation.isImpersonating;
 
@@ -171,8 +188,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           if (impersonation.isImpersonating)
             _ImpersonationBanner(
-              name:
-                  impersonation.impersonatedProfile?.displayName ?? 'usuário',
+              name: impersonation.impersonatedProfile?.displayName ?? 'usuário',
               onStop: () => context.read<ImpersonationProvider>().stop(),
             ),
           if (requiresSubscription) const _SubscriptionBanner(),
@@ -205,9 +221,7 @@ class _AppShellState extends State<AppShell> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
                 'Alternar usuário',
-                style: Theme.of(sheetContext)
-                    .textTheme
-                    .titleMedium
+                style: Theme.of(sheetContext).textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -231,9 +245,9 @@ class _AppShellState extends State<AppShell> {
                 selected: authors.selected?.whatsapp == author.whatsapp,
                 onTap: () {
                   authors.select(author);
-                  context
-                      .read<FinanceProvider>()
-                      .setAuthorFilter(author.whatsapp);
+                  context.read<FinanceProvider>().setAuthorFilter(
+                    author.whatsapp,
+                  );
                   Navigator.pop(sheetContext);
                 },
               ),
@@ -260,7 +274,9 @@ class _AppShellState extends State<AppShell> {
             height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: theme.colorScheme.outline)),
+              border: Border(
+                bottom: BorderSide(color: theme.colorScheme.outline),
+              ),
             ),
             child: Row(
               children: [
@@ -281,7 +297,9 @@ class _AppShellState extends State<AppShell> {
                 _ContactButton(),
                 _NotificationsButton(
                   onOpen: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsPage(),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -319,16 +337,16 @@ class _DashboardGreeting extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final impersonation = context.watch<ImpersonationProvider>();
     final activeProfile = impersonation.impersonatedProfile ?? auth.profile;
-    final name = activeProfile?.firstName ??
+    final name =
+        activeProfile?.firstName ??
         activeProfile?.displayName ??
         (auth.user?.email?.split('@').first ?? '');
     final displayName = name.trim().isEmpty ? 'Usuário' : name.trim();
 
     return Expanded(
       child: _AccountButton(
-        onOpenAdmin: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const SuperAdminPage()),
-        ),
+        onOpenAdmin: () => Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SuperAdminPage())),
         onSwitchAuthor: () => _showAuthorSheet(context),
         child: Row(
           children: [
@@ -376,9 +394,7 @@ class _DashboardGreeting extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
                 'Alternar usuário',
-                style: Theme.of(sheetContext)
-                    .textTheme
-                    .titleMedium
+                style: Theme.of(sheetContext).textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -402,9 +418,9 @@ class _DashboardGreeting extends StatelessWidget {
                 selected: authors.selected?.whatsapp == author.whatsapp,
                 onTap: () {
                   authors.select(author);
-                  context
-                      .read<FinanceProvider>()
-                      .setAuthorFilter(author.whatsapp);
+                  context.read<FinanceProvider>().setAuthorFilter(
+                    author.whatsapp,
+                  );
                   Navigator.pop(sheetContext);
                 },
               ),
@@ -618,7 +634,8 @@ class _AccountButton extends StatelessWidget {
           ),
         ),
       ],
-      child: child ??
+      child:
+          child ??
           _AccountAvatar(activeProfile: activeProfile, radius: avatarSize),
     );
   }
@@ -651,7 +668,10 @@ class _NotificationsButton extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.mint : theme.colorScheme.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: theme.colorScheme.surface, width: 1.5),
+                  border: Border.all(
+                    color: theme.colorScheme.surface,
+                    width: 1.5,
+                  ),
                 ),
               ),
             )
@@ -680,9 +700,9 @@ class _ContactButton extends StatelessWidget {
       tooltip: 'Assistente',
       icon: Icons.smart_toy_outlined,
       color: isDark ? AppColors.mint : theme.colorScheme.primary,
-      onPressed: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ChatPage()),
-      ),
+      onPressed: () =>
+          Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const ChatPage())),
     );
   }
 

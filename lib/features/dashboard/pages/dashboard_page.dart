@@ -12,8 +12,6 @@ import '../../chat/pages/chat_page.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../../goals/widgets/goal_form_sheet.dart';
 import '../../transactions/widgets/transaction_form_sheet.dart';
-import '../widgets/active_goals_card.dart';
-import '../widgets/bills_summary_card.dart';
 import '../widgets/quick_actions_card.dart';
 import '../widgets/recent_transactions_card.dart';
 
@@ -67,11 +65,6 @@ class _DashboardPageState extends State<DashboardPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final billsProvider = context.watch<BillsProvider>();
-    final pendingCount = billsProvider.bills
-        .where((bill) => !billsProvider.isPaid(bill.id))
-        .length;
-
     final incomeComparison = dashboard.comparison(
       dashboard.monthlyIncome,
       dashboard.previousMonthIncome,
@@ -112,13 +105,6 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ],
           const SizedBox(height: 16),
-          if (pendingCount > 0) ...[
-            _PendingBanner(
-              count: pendingCount,
-              onTap: () => widget.onOpenPage?.call('bills'),
-            ),
-            const SizedBox(height: 18),
-          ],
           Text(
             'Resumo do mês',
             style: theme.textTheme.titleMedium?.copyWith(
@@ -142,7 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 34,
+                  height: 44,
                   child: CapsuleSelector(
                     options: const ['Despesas', 'Receitas'],
                     selectedIndex: _categoryTab,
@@ -178,17 +164,6 @@ class _DashboardPageState extends State<DashboardPage> {
             onViewAll: () => widget.onOpenPage?.call('transactions'),
           ),
           const SizedBox(height: 16),
-          ActiveGoalsCard(
-            goals: dashboard.activeGoals,
-            onViewAll: () => widget.onOpenPage?.call('goals'),
-          ),
-          const SizedBox(height: 16),
-          BillsSummaryCard(
-            bills: billsProvider.bills,
-            isPaid: billsProvider.isPaid,
-            onViewAll: () => widget.onOpenPage?.call('bills'),
-          ),
-          const SizedBox(height: 16),
           QuickActionsCard(
             actions: [
               QuickAction(
@@ -209,9 +184,8 @@ class _DashboardPageState extends State<DashboardPage> {
               QuickAction(
                 label: 'Chat IA',
                 icon: Icons.smart_toy_outlined,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ChatPage()),
-                ),
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const ChatPage())),
               ),
             ],
           ),
@@ -273,7 +247,9 @@ class _BalanceSummary extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               onPressed: onToggleHidden,
               icon: Icon(
-                hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                hidden
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -283,7 +259,8 @@ class _BalanceSummary extends StatelessWidget {
         if (comparison != 0 && comparison.isFinite) ...[
           const SizedBox(height: 6),
           _TrendChip(
-            text: '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}% ref. último mês',
+            text:
+                '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}% ref. último mês',
             color: trendColor,
           ),
         ],
@@ -349,10 +326,15 @@ class _MonthSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final previousMonth = DateTime(currentMonth.year, currentMonth.month - 1, 1);
+    final previousMonth = DateTime(
+      currentMonth.year,
+      currentMonth.month - 1,
+      1,
+    );
     final balanceTrend = comparison != 0 && comparison.isFinite
         ? _TrendChip(
-            text: '${comparison >= 0 ? '↑' : '↓'} ${comparison.abs().toStringAsFixed(0)}% ref. a ${formatMonth(previousMonth).toLowerCase()}',
+            text:
+                '${comparison >= 0 ? '↑' : '↓'} ${comparison.abs().toStringAsFixed(0)}% ref. a ${formatMonth(previousMonth).toLowerCase()}',
             color: comparison >= 0
                 ? (isDark ? AppColors.mint : const Color(0xFF10B981))
                 : const Color(0xFFEF4444),
@@ -454,8 +436,12 @@ class _CategoryLine extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium,
+          ),
         ),
         if (hasComparison) ...[
           Container(
@@ -513,60 +499,6 @@ class _DarkCard extends StatelessWidget {
   }
 }
 
-/// Card de "transações pendentes" com ícone amarelo e chevron.
-class _PendingBanner extends StatelessWidget {
-  const _PendingBanner({required this.count, required this.onTap});
-
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surface,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.colorScheme.outline),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.schedule, size: 20, color: Color(0xFFF59E0B)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Você possui $count ${count == 1 ? 'transação pendente' : 'transações pendentes'}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Carrossel horizontal de cards por categoria com anel de progresso.
 class _CategoryCarousel extends StatelessWidget {
   const _CategoryCarousel({
@@ -588,9 +520,7 @@ class _CategoryCarousel extends StatelessWidget {
     if (totals.isEmpty) {
       return _DarkCard(
         child: Text(
-          isIncome
-              ? 'Sem receitas neste mês.'
-              : 'Sem despesas neste mês.',
+          isIncome ? 'Sem receitas neste mês.' : 'Sem despesas neste mês.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -704,7 +634,9 @@ class _CategoryRingCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              hidden ? '••••••' : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
+              hidden
+                  ? '••••••'
+                  : '$sign ${value.replaceFirst(r'R$', '')}'.trim(),
               maxLines: 1,
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w700,

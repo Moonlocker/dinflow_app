@@ -23,10 +23,10 @@ class CapsuleSelector extends StatelessWidget {
     final track = isDark
         ? const Color(0xFF202226)
         : theme.colorScheme.surfaceContainerHighest;
-    final selectedFill =
-        isDark ? AppColors.mint : theme.colorScheme.primary;
-    final selectedLabel =
-        isDark ? AppColors.onMint : theme.colorScheme.onPrimary;
+    final selectedFill = isDark ? AppColors.mint : theme.colorScheme.primary;
+    final selectedLabel = isDark
+        ? AppColors.onMint
+        : theme.colorScheme.onPrimary;
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -43,10 +43,14 @@ class CapsuleSelector extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: i == selectedIndex ? selectedFill : Colors.transparent,
+                    color: i == selectedIndex
+                        ? selectedFill
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: FittedBox(
@@ -55,12 +59,14 @@ class CapsuleSelector extends StatelessWidget {
                       options[i],
                       textAlign: TextAlign.center,
                       maxLines: 1,
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: theme.textTheme.labelLarge?.copyWith(
                         color: i == selectedIndex
                             ? selectedLabel
                             : theme.colorScheme.onSurfaceVariant,
-                        fontWeight:
-                            i == selectedIndex ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: i == selectedIndex
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        height: 1.2,
                       ),
                     ),
                   ),

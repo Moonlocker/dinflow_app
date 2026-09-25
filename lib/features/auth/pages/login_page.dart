@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 
 import '../../../widgets/app_card.dart';
 import '../../../widgets/brand_logo.dart';
+import '../../../widgets/social_login_buttons.dart';
 import '../../demo/pages/demo_page.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/forgot_password_sheet.dart';
@@ -35,13 +36,15 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(_emailController.text, _passwordController.text);
+    final success = await auth.login(
+      _emailController.text,
+      _passwordController.text,
+    );
 
     if (!mounted) return;
     if (!success && auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
       auth.clearError();
     }
   }
@@ -51,9 +54,8 @@ class _LoginPageState extends State<LoginPage> {
     final ok = await auth.signInWithOAuth(provider);
     if (!mounted) return;
     if (!ok && auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
       auth.clearError();
     }
   }
@@ -105,12 +107,16 @@ class _LoginPageState extends State<LoginPage> {
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.email],
-                            decoration: const InputDecoration(hintText: 'seu@email.com'),
+                            decoration: const InputDecoration(
+                              hintText: 'seu@email.com',
+                            ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Informe seu email.';
                               }
-                              if (!value.contains('@')) return 'Email inválido.';
+                              if (!value.contains('@')) {
+                                return 'Email inválido.';
+                              }
                               return null;
                             },
                           ),
@@ -126,8 +132,9 @@ class _LoginPageState extends State<LoginPage> {
                             decoration: InputDecoration(
                               hintText: 'Sua senha',
                               suffixIcon: IconButton(
-                                onPressed: () =>
-                                    setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_outlined
@@ -164,27 +171,9 @@ class _LoginPageState extends State<LoginPage> {
                                 : const Text('Entrar'),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              const Expanded(child: Divider()),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('ou', style: theme.textTheme.bodySmall),
-                              ),
-                              const Expanded(child: Divider()),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: busy ? null : () => _social(OAuthProvider.google),
-                            icon: const Icon(Icons.g_mobiledata, size: 24),
-                            label: const Text('Continuar com Google'),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: busy ? null : () => _social(OAuthProvider.apple),
-                            icon: const Icon(Icons.apple),
-                            label: const Text('Continuar com Apple'),
+                          SocialLoginButtons(
+                            enabled: !busy,
+                            onProvider: _social,
                           ),
                         ],
                       ),
@@ -198,9 +187,9 @@ class _LoginPageState extends State<LoginPage> {
                     child: const Text('Não tem uma conta? Cadastre-se grátis'),
                   ),
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const DemoPage()),
-                    ),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).push(MaterialPageRoute(builder: (_) => const DemoPage())),
                     icon: const Icon(Icons.play_circle_outline, size: 18),
                     label: const Text('Ver demonstração'),
                   ),
@@ -225,9 +214,7 @@ class _Label extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: Theme.of(context)
-            .textTheme
-            .labelLarge
+        style: Theme.of(context).textTheme.labelLarge
             ?.copyWith(fontWeight: FontWeight.w600),
       ),
     );

@@ -35,28 +35,61 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
   int _index = 0;
 
   static final List<_AdminSection> _sections = [
-    _AdminSection('Visão Geral', Icons.dashboard_outlined,
-        (_) => const AdminDashboardSection()),
-    _AdminSection('Usuários', Icons.people_outline,
-        (_) => const AdminUsersSection()),
-    _AdminSection('Planos', Icons.credit_card_outlined,
-        (_) => const AdminPlansSection()),
-    _AdminSection('Pagamentos', Icons.attach_money,
-        (_) => const AdminPaymentsSection()),
-    _AdminSection('E-mail & Notificação', Icons.mail_outline,
-        (_) => const AdminCommunicationSection()),
-    _AdminSection('Webhooks', Icons.webhook_outlined,
-        (_) => const AdminWebhooksSection()),
-    _AdminSection('WhatsApp', Icons.chat_outlined,
-        (_) => const AdminWhatsAppSection()),
-    _AdminSection('Afiliados', Icons.card_giftcard_outlined,
-        (_) => const AdminAffiliatesSection()),
-    _AdminSection('Analytics', Icons.bar_chart_outlined,
-        (_) => const AdminAnalyticsSection()),
-    _AdminSection('Educação', Icons.menu_book_outlined,
-        (_) => const AdminEducationSection()),
-    _AdminSection('Configurações', Icons.settings_outlined,
-        (_) => const AdminSettingsSection()),
+    _AdminSection(
+      'Visão Geral',
+      Icons.dashboard_outlined,
+      (_) => const AdminDashboardSection(),
+    ),
+    _AdminSection(
+      'Usuários',
+      Icons.people_outline,
+      (_) => const AdminUsersSection(),
+    ),
+    _AdminSection(
+      'Planos',
+      Icons.credit_card_outlined,
+      (_) => const AdminPlansSection(),
+    ),
+    _AdminSection(
+      'Pagamentos',
+      Icons.attach_money,
+      (_) => const AdminPaymentsSection(),
+    ),
+    _AdminSection(
+      'E-mail & Notificação',
+      Icons.mail_outline,
+      (_) => const AdminCommunicationSection(),
+    ),
+    _AdminSection(
+      'Webhooks',
+      Icons.webhook_outlined,
+      (_) => const AdminWebhooksSection(),
+    ),
+    _AdminSection(
+      'WhatsApp',
+      Icons.chat_outlined,
+      (_) => const AdminWhatsAppSection(),
+    ),
+    _AdminSection(
+      'Afiliados',
+      Icons.card_giftcard_outlined,
+      (_) => const AdminAffiliatesSection(),
+    ),
+    _AdminSection(
+      'Analytics',
+      Icons.bar_chart_outlined,
+      (_) => const AdminAnalyticsSection(),
+    ),
+    _AdminSection(
+      'Educação',
+      Icons.menu_book_outlined,
+      (_) => const AdminEducationSection(),
+    ),
+    _AdminSection(
+      'Configurações',
+      Icons.settings_outlined,
+      (_) => const AdminSettingsSection(),
+    ),
   ];
 
   @override
@@ -87,9 +120,14 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
                     const BrandLogo(height: 32),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.15,
+                        ),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -107,7 +145,9 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
-                  auth.profile?.displayName ?? auth.user?.email ?? 'Administrador',
+                  auth.profile?.displayName ??
+                      auth.user?.email ??
+                      'Administrador',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -145,9 +185,12 @@ class _SuperAdminPageState extends State<SuperAdminPage> {
           ),
         ),
       ),
-      body: IndexedStack(
-        index: _index,
-        children: [for (final section in _sections) section.builder(context)],
+      body: SafeArea(
+        top: false,
+        child: IndexedStack(
+          index: _index,
+          children: [for (final section in _sections) section.builder(context)],
+        ),
       ),
     );
   }

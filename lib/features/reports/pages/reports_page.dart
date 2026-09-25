@@ -57,8 +57,18 @@ class _ReportsPageState extends State<ReportsPage> {
   bool _exporting = false;
 
   static const _monthNames = [
-    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+    'Jan',
+    'Fev',
+    'Mar',
+    'Abr',
+    'Mai',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Set',
+    'Out',
+    'Nov',
+    'Dez',
   ];
 
   @override
@@ -84,30 +94,53 @@ class _ReportsPageState extends State<ReportsPage> {
         return transaction.date.year == year;
       case _PeriodType.specific:
         if (_range == null) return true;
-        final end = DateTime(_range!.end.year, _range!.end.month, _range!.end.day, 23, 59);
-        return !transaction.date.isBefore(_range!.start) && !transaction.date.isAfter(end);
+        final end = DateTime(
+          _range!.end.year,
+          _range!.end.month,
+          _range!.end.day,
+          23,
+          59,
+        );
+        return !transaction.date.isBefore(_range!.start) &&
+            !transaction.date.isAfter(end);
     }
   }
 
   List<Transaction> _filtered(FinanceProvider finance) =>
       finance.transactions.where((t) => _inPeriod(t, finance)).toList();
 
-  List<_MonthlyPoint> _monthlySeries(FinanceProvider finance, List<Transaction> filtered) {
+  List<_MonthlyPoint> _monthlySeries(
+    FinanceProvider finance,
+    List<Transaction> filtered,
+  ) {
     final points = <_MonthlyPoint>[];
     final now = finance.currentDate;
 
     void addMonth(DateTime month) {
       final income = filtered
-          .where((t) => t.isIncome && t.date.year == month.year && t.date.month == month.month)
+          .where(
+            (t) =>
+                t.isIncome &&
+                t.date.year == month.year &&
+                t.date.month == month.month,
+          )
           .fold(0.0, (sum, t) => sum + t.amount);
       final expense = filtered
-          .where((t) => t.isExpense && t.date.year == month.year && t.date.month == month.month)
+          .where(
+            (t) =>
+                t.isExpense &&
+                t.date.year == month.year &&
+                t.date.month == month.month,
+          )
           .fold(0.0, (sum, t) => sum + t.amount);
-      points.add(_MonthlyPoint(
-        label: '${_monthNames[month.month - 1]}/${month.year.toString().substring(2)}',
-        income: income,
-        expense: expense,
-      ));
+      points.add(
+        _MonthlyPoint(
+          label:
+              '${_monthNames[month.month - 1]}/${month.year.toString().substring(2)}',
+          income: income,
+          expense: expense,
+        ),
+      );
     }
 
     switch (_periodType) {
@@ -143,7 +176,9 @@ class _ReportsPageState extends State<ReportsPage> {
       final total = filtered
           .where((t) => t.categoryId == category.id)
           .fold(0.0, (sum, t) => sum + t.amount);
-      if (total > 0) totals.add(CategoryTotal(category: category, total: total));
+      if (total > 0) {
+        totals.add(CategoryTotal(category: category, total: total));
+      }
     }
     totals.sort((a, b) => b.total.compareTo(a.total));
     return totals;
@@ -176,10 +211,12 @@ class _ReportsPageState extends State<ReportsPage> {
     final finance = context.read<FinanceProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final filtered = _filtered(finance);
-    final income =
-        filtered.where((t) => t.isIncome).fold(0.0, (sum, t) => sum + t.amount);
-    final expense =
-        filtered.where((t) => t.isExpense).fold(0.0, (sum, t) => sum + t.amount);
+    final income = filtered
+        .where((t) => t.isIncome)
+        .fold(0.0, (sum, t) => sum + t.amount);
+    final expense = filtered
+        .where((t) => t.isExpense)
+        .fold(0.0, (sum, t) => sum + t.amount);
 
     final data = ReportExportData(
       periodLabel: _periodLabel(finance),
@@ -215,14 +252,15 @@ class _ReportsPageState extends State<ReportsPage> {
     }
 
     final filtered = _filtered(finance);
-    final periodIncome = filtered.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
-    final periodExpense = filtered.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
+    final periodIncome = filtered
+        .where((t) => t.isIncome)
+        .fold(0.0, (s, t) => s + t.amount);
+    final periodExpense = filtered
+        .where((t) => t.isExpense)
+        .fold(0.0, (s, t) => s + t.amount);
     final periodBalance = periodIncome - periodExpense;
     final series = _monthlySeries(finance, filtered);
-    final years = finance.transactions
-        .map((t) => t.date.year)
-        .toSet()
-        .toList()
+    final years = finance.transactions.map((t) => t.date.year).toSet().toList()
       ..sort((a, b) => b.compareTo(a));
 
     final tabType = _reportTab == _ReportTab.expenses ? 'expense' : 'income';
@@ -247,8 +285,11 @@ class _ReportsPageState extends State<ReportsPage> {
         const SizedBox(height: 16),
         _ReportDonutCard(
           tab: _reportTab,
-          onTabChanged: (index) =>
-              setState(() => _reportTab = index == 0 ? _ReportTab.expenses : _ReportTab.income),
+          onTabChanged: (index) => setState(
+            () => _reportTab = index == 0
+                ? _ReportTab.expenses
+                : _ReportTab.income,
+          ),
           totals: tabTotals,
           total: tabTotal,
           transactionCount: tabCount,
@@ -316,7 +357,9 @@ class _ReportsPageState extends State<ReportsPage> {
           title: 'Saldo do período',
           value: formatCurrency(periodBalance),
           icon: Icons.attach_money,
-          accent: periodBalance >= 0 ? const Color(0xFF3B82F6) : const Color(0xFFF97316),
+          accent: periodBalance >= 0
+              ? const Color(0xFF3B82F6)
+              : const Color(0xFFF97316),
         ),
         const SizedBox(height: 16),
         AppCard(
@@ -325,11 +368,17 @@ class _ReportsPageState extends State<ReportsPage> {
             children: [
               Text(
                 'Visão Geral Financeira',
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 16),
-              if (series.isEmpty || series.every((p) => p.income == 0 && p.expense == 0))
-                const EmptyState(icon: Icons.bar_chart, message: 'Sem dados no período.')
+              if (series.isEmpty ||
+                  series.every((p) => p.income == 0 && p.expense == 0))
+                const EmptyState(
+                  icon: Icons.bar_chart,
+                  message: 'Sem dados no período.',
+                )
               else
                 _MonthlyBars(points: series),
             ],
@@ -342,11 +391,17 @@ class _ReportsPageState extends State<ReportsPage> {
             children: [
               Text(
                 'Saldo Acumulado',
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 16),
-              if (series.isEmpty || series.every((p) => p.income == 0 && p.expense == 0))
-                const EmptyState(icon: Icons.show_chart, message: 'Sem dados no período.')
+              if (series.isEmpty ||
+                  series.every((p) => p.income == 0 && p.expense == 0))
+                const EmptyState(
+                  icon: Icons.show_chart,
+                  message: 'Sem dados no período.',
+                )
               else
                 SizedBox(height: 180, child: _BalanceAreaChart(points: series)),
             ],
@@ -530,7 +585,7 @@ class _ReportDonutCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 38,
+            height: 40,
             child: CapsuleSelector(
               options: const ['Despesas', 'Receitas'],
               selectedIndex: tab == _ReportTab.expenses ? 0 : 1,
@@ -552,14 +607,17 @@ class _ReportDonutCard extends StatelessWidget {
                   PieChart(
                     PieChartData(
                       sectionsSpace: 3,
-                      centerSpaceRadius: 68,
+                      // Ring interno + raio das seções precisam caber no box
+                      // (200px de altura) para o gráfico não invadir o seletor
+                      // de cápsulas acima nem as linhas de categorias abaixo.
+                      centerSpaceRadius: 58,
                       startDegreeOffset: -90,
                       sections: [
                         for (var i = 0; i < totals.length; i++)
                           PieChartSectionData(
                             value: totals[i].total,
                             color: _colorFor(totals[i].category, i),
-                            radius: 56,
+                            radius: 40,
                             showTitle: false,
                           ),
                       ],
@@ -757,7 +815,9 @@ class _PeriodPickerCard extends StatelessWidget {
         children: [
           Text(
             'Período da análise',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -766,7 +826,10 @@ class _PeriodPickerCard extends StatelessWidget {
               segments: const [
                 ButtonSegment(value: _PeriodType.last6, label: Text('6 meses')),
                 ButtonSegment(value: _PeriodType.year, label: Text('Ano')),
-                ButtonSegment(value: _PeriodType.specific, label: Text('Período')),
+                ButtonSegment(
+                  value: _PeriodType.specific,
+                  label: Text('Período'),
+                ),
               ],
               selected: {periodType},
               onSelectionChanged: (value) => onPeriodChanged(value.first),
@@ -775,10 +838,13 @@ class _PeriodPickerCard extends StatelessWidget {
           if (periodType == _PeriodType.year) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              initialValue: year ?? (years.isNotEmpty ? years.first : DateTime.now().year),
+              initialValue:
+                  year ??
+                  (years.isNotEmpty ? years.first : DateTime.now().year),
               decoration: const InputDecoration(labelText: 'Ano'),
               items: [
-                for (final year in (years.isEmpty ? [DateTime.now().year] : years))
+                for (final year
+                    in (years.isEmpty ? [DateTime.now().year] : years))
                   DropdownMenuItem(value: year, child: Text(year.toString())),
               ],
               onChanged: onYearChanged,
@@ -892,19 +958,22 @@ class _InsightsCard extends StatelessWidget {
     }
     if (income > 0 && savingsRate < 0) {
       insights.add((
-        text: 'Você gastou mais do que ganhou no período. Revise suas despesas.',
+        text:
+            'Você gastou mais do que ganhou no período. Revise suas despesas.',
         color: const Color(0xFFEF4444),
         icon: Icons.warning_amber_outlined,
       ));
     } else if (savingsRate >= 0.2) {
       insights.add((
-        text: 'Ótimo! Você poupou ${(savingsRate * 100).toStringAsFixed(0)}% da sua renda.',
+        text:
+            'Ótimo! Você poupou ${(savingsRate * 100).toStringAsFixed(0)}% da sua renda.',
         color: const Color(0xFF10B981),
         icon: Icons.check_circle_outline,
       ));
     } else if (income > 0) {
       insights.add((
-        text: 'Sua taxa de poupança foi de ${(savingsRate * 100).toStringAsFixed(0)}%. Tente chegar a 20%.',
+        text:
+            'Sua taxa de poupança foi de ${(savingsRate * 100).toStringAsFixed(0)}%. Tente chegar a 20%.',
         color: const Color(0xFFF59E0B),
         icon: Icons.trending_up,
       ));
@@ -916,7 +985,9 @@ class _InsightsCard extends StatelessWidget {
         children: [
           Text(
             'Insights',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           for (final insight in insights) ...[
@@ -956,10 +1027,10 @@ class _HealthCard extends StatelessWidget {
     final color = score == null
         ? theme.colorScheme.onSurfaceVariant
         : score >= 8
-            ? const Color(0xFF10B981)
-            : score >= 5
-                ? const Color(0xFFF59E0B)
-                : const Color(0xFFEF4444);
+        ? const Color(0xFF10B981)
+        : score >= 5
+        ? const Color(0xFFF59E0B)
+        : const Color(0xFFEF4444);
 
     return AppCard(
       child: Column(
@@ -967,7 +1038,9 @@ class _HealthCard extends StatelessWidget {
         children: [
           Text(
             'Saúde Financeira',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           if (score == null)
@@ -1047,8 +1120,12 @@ class _BalanceAreaChart extends StatelessWidget {
       running += points[i].income - points[i].expense;
       spots.add(FlSpot(i.toDouble(), running));
     }
-    final minValue = spots.map((s) => s.y).fold<double>(0, (m, v) => v < m ? v : m);
-    final maxValue = spots.map((s) => s.y).fold<double>(0, (m, v) => v > m ? v : m);
+    final minValue = spots
+        .map((s) => s.y)
+        .fold<double>(0, (m, v) => v < m ? v : m);
+    final maxValue = spots
+        .map((s) => s.y)
+        .fold<double>(0, (m, v) => v > m ? v : m);
     final range = (maxValue - minValue).abs() < 1 ? 1.0 : (maxValue - minValue);
 
     return LineChart(
@@ -1058,9 +1135,15 @@ class _BalanceAreaChart extends StatelessWidget {
         gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -1136,15 +1219,35 @@ class _ComparisonTable extends StatelessWidget {
         children: [
           Text(
             'Comparação Mensal',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(flex: 2, child: Text('Mês', style: headerStyle)),
-              Expanded(child: Text('Entradas', style: headerStyle, textAlign: TextAlign.right)),
-              Expanded(child: Text('Saídas', style: headerStyle, textAlign: TextAlign.right)),
-              Expanded(child: Text('Variação', style: headerStyle, textAlign: TextAlign.right)),
+              Expanded(
+                child: Text(
+                  'Entradas',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Saídas',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  'Variação',
+                  style: headerStyle,
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
           ),
           const Divider(),
@@ -1159,13 +1262,20 @@ class _ComparisonTable extends StatelessWidget {
                 final color = variation > 0
                     ? const Color(0xFFEF4444)
                     : variation < 0
-                        ? const Color(0xFF10B981)
-                        : theme.colorScheme.onSurfaceVariant;
+                    ? const Color(0xFF10B981)
+                    : theme.colorScheme.onSurfaceVariant;
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Expanded(flex: 2, child: Text(points[i].label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          points[i].label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       Expanded(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -1195,7 +1305,10 @@ class _ComparisonTable extends StatelessWidget {
                           child: Text(
                             '${variation >= 0 ? '+' : ''}${variation.toStringAsFixed(0)}%',
                             maxLines: 1,
-                            style: TextStyle(fontWeight: FontWeight.w600, color: color),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: color,
+                            ),
                           ),
                         ),
                       ),

@@ -63,39 +63,42 @@ class NotificationsPage extends StatelessWidget {
             ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: provider.refresh,
-        child: provider.loading && provider.items.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : provider.items.isEmpty
-                ? ListView(
-                    children: const [
-                      SizedBox(height: 80),
-                      EmptyState(
-                        icon: Icons.notifications_none,
-                        message: 'Nenhuma notificação por aqui.',
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: provider.refresh,
+          child: provider.loading && provider.items.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : provider.items.isEmpty
+              ? ListView(
+                  children: const [
+                    SizedBox(height: 80),
+                    EmptyState(
+                      icon: Icons.notifications_none,
+                      message: 'Nenhuma notificação por aqui.',
+                    ),
+                  ],
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  itemCount: provider.items.length,
+                  itemBuilder: (context, index) {
+                    final notification = provider.items[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _NotificationTile(
+                        notification: notification,
+                        onTap: () {
+                          if (!notification.isRead) {
+                            provider.markAsRead(notification.id);
+                          }
+                          _showDetail(context, notification);
+                        },
                       ),
-                    ],
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                    itemCount: provider.items.length,
-                    itemBuilder: (context, index) {
-                      final notification = provider.items[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _NotificationTile(
-                          notification: notification,
-                          onTap: () {
-                            if (!notification.isRead) {
-                              provider.markAsRead(notification.id);
-                            }
-                            _showDetail(context, notification);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -114,9 +117,7 @@ class _NotificationTile extends StatelessWidget {
 
     return AppCard(
       onTap: onTap,
-      color: unread
-          ? theme.colorScheme.primary.withValues(alpha: 0.06)
-          : null,
+      color: unread ? theme.colorScheme.primary.withValues(alpha: 0.06) : null,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -144,7 +145,9 @@ class _NotificationTile extends StatelessWidget {
                       child: Text(
                         notification.title,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: unread
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
                     ),

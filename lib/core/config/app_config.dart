@@ -3,6 +3,10 @@
 /// Os valores padrão são as chaves públicas já publicadas no bundle web do
 /// DinFlow (protegidas por RLS). Podem ser sobrescritos no build com
 /// `--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...`.
+library;
+
+import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
+
 class AppConfig {
   const AppConfig._();
 
@@ -13,8 +17,7 @@ class AppConfig {
 
   static const String supabaseAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
-    defaultValue:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxZGhob2ljeG52a3Bnd3ZpcG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3OTUxNDAsImV4cCI6MjA3MzM3MTE0MH0.w4YttVmNha_V57cwOP6vzKc47uJ8FLxhYqpkRcoejNI',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZxZGhob2ljeG52a3Bnd3ZpcG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3OTUxNDAsImV4cCI6MjA3MzM3MTE0MH0.w4YttVmNha_V57cwOP6vzKc47uJ8FLxhYqpkRcoejNI',
   );
 
   static const String appName = 'DinFlow';
@@ -33,4 +36,11 @@ class AppConfig {
   /// Deep link usado no retorno do OAuth (Google/Apple).
   /// Deve estar cadastrado em Supabase Auth > URL Configuration.
   static const String oauthRedirectUrl = 'io.dinflow.app://login-callback';
+
+  /// Provedores OAuth exibidos no login/registro — espelha o webapp
+  /// (`VITE_GOOGLE_OAUTH_ENABLED` / `VITE_APPLE_OAUTH_ENABLED`), onde o login
+  /// com Apple está desabilitado hoje.
+  static const List<OAuthProvider> enabledOAuthProviders = [
+    OAuthProvider.google,
+  ];
 }

@@ -221,192 +221,209 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Assinatura')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _load,
-                          child: const Text('Tentar novamente'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      body: SafeArea(
+        top: false,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      AppCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Sua assinatura',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('Status: ${_statusLabel(profile?.subscriptionStatus)}'),
-                            if (profile?.trialEndsAt != null &&
-                                profile?.subscriptionStatus == 'trial')
-                              Text(
-                                'Trial até ${formatDateOnly(profile!.trialEndsAt!.toIso8601String())}',
-                              ),
-                            if (profile?.subscriptionEndDate != null)
-                              Text(
-                                'Válida até ${formatDateOnly(profile!.subscriptionEndDate!.toIso8601String())}',
-                              ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                OutlinedButton.icon(
-                                  onPressed: _openPortal,
-                                  icon: const Icon(Icons.open_in_new, size: 18),
-                                  label: const Text('Gerenciar'),
-                                ),
-                                OutlinedButton.icon(
-                                  onPressed: _loadingHistory ? null : _openHistory,
-                                  icon: _loadingHistory
-                                      ? const SizedBox(
-                                          height: 16,
-                                          width: 16,
-                                          child:
-                                              CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : const Icon(Icons.receipt_long_outlined,
-                                          size: 18),
-                                  label: const Text('Histórico'),
-                                ),
-                                if (profile?.subscriptionStatus == 'active')
-                                  OutlinedButton.icon(
-                                    onPressed: _cancel,
-                                    icon: Icon(Icons.cancel_outlined,
-                                        size: 18,
-                                        color:
-                                            Theme.of(context).colorScheme.error),
-                                    label: Text(
-                                      'Cancelar',
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.error,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'monthly', label: Text('Mensal')),
-                          ButtonSegment(value: 'yearly', label: Text('Anual')),
-                        ],
-                        selected: {_cycle},
-                        onSelectionChanged: (value) =>
-                            setState(() => _cycle = value.first),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Planos disponíveis',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Pagamento seguro via ${_gateway == 'stripe' ? 'Stripe' : _gateway}.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                      ),
+                      Text(_error!),
                       const SizedBox(height: 12),
-                      if (_visiblePlans.isEmpty)
-                        const EmptyState(
-                          icon: Icons.credit_card_outlined,
-                          message: 'Nenhum plano disponível no momento.',
-                        )
-                      else
-                        for (final plan in _visiblePlans)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: AppCard(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          plan.name,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleSmall
-                                              ?.copyWith(fontWeight: FontWeight.w700),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${formatCurrency(plan.price)} / ${plan.recurrenceLabel}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(fontWeight: FontWeight.w700),
-                                      ),
-                                    ],
-                                  ),
-                                  if (plan.features.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    for (final feature in plan.features)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 2),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.check,
-                                                size: 16, color: Color(0xFF10B981)),
-                                            const SizedBox(width: 6),
-                                            Expanded(child: Text(feature)),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: FilledButton(
-                                      onPressed: _busyPlanId == null
-                                          ? () => _subscribe(plan)
-                                          : null,
-                                      child: _busyPlanId == plan.id
-                                          ? const SizedBox(
-                                              height: 18,
-                                              width: 18,
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2),
-                                            )
-                                          : const Text('Assinar'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                      OutlinedButton(
+                        onPressed: _load,
+                        child: const Text('Tentar novamente'),
+                      ),
                     ],
                   ),
                 ),
+              )
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  children: [
+                    AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sua assinatura',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Status: ${_statusLabel(profile?.subscriptionStatus)}',
+                          ),
+                          if (profile?.trialEndsAt != null &&
+                              profile?.subscriptionStatus == 'trial')
+                            Text(
+                              'Trial até ${formatDateOnly(profile!.trialEndsAt!.toIso8601String())}',
+                            ),
+                          if (profile?.subscriptionEndDate != null)
+                            Text(
+                              'Válida até ${formatDateOnly(profile!.subscriptionEndDate!.toIso8601String())}',
+                            ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _openPortal,
+                                icon: const Icon(Icons.open_in_new, size: 18),
+                                label: const Text('Gerenciar'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _loadingHistory
+                                    ? null
+                                    : _openHistory,
+                                icon: _loadingHistory
+                                    ? const SizedBox(
+                                        height: 16,
+                                        width: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.receipt_long_outlined,
+                                        size: 18,
+                                      ),
+                                label: const Text('Histórico'),
+                              ),
+                              if (profile?.subscriptionStatus == 'active')
+                                OutlinedButton.icon(
+                                  onPressed: _cancel,
+                                  icon: Icon(
+                                    Icons.cancel_outlined,
+                                    size: 18,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                  label: Text(
+                                    'Cancelar',
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .error,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'monthly', label: Text('Mensal')),
+                        ButtonSegment(value: 'yearly', label: Text('Anual')),
+                      ],
+                      selected: {_cycle},
+                      onSelectionChanged: (value) =>
+                          setState(() => _cycle = value.first),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Planos disponíveis',
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pagamento seguro via ${_gateway == 'stripe' ? 'Stripe' : _gateway}.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (_visiblePlans.isEmpty)
+                      const EmptyState(
+                        icon: Icons.credit_card_outlined,
+                        message: 'Nenhum plano disponível no momento.',
+                      )
+                    else
+                      for (final plan in _visiblePlans)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: AppCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        plan.name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${formatCurrency(plan.price)} / ${plan.recurrenceLabel}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                if (plan.features.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  for (final feature in plan.features)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 2),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.check,
+                                            size: 16,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(child: Text(feature)),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    onPressed: _busyPlanId == null
+                                        ? () => _subscribe(plan)
+                                        : null,
+                                    child: _busyPlanId == plan.id
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Assinar'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show OAuthProvider;
 
 import '../../../widgets/app_card.dart';
 import '../../../widgets/brand_logo.dart';
+import '../../../widgets/social_login_buttons.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -78,7 +79,9 @@ class _RegisterPageState extends State<RegisterPage> {
       Navigator.of(context).popUntil((route) => route.isFirst);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Conta criada! Verifique seu email para confirmar.')),
+        const SnackBar(
+          content: Text('Conta criada! Verifique seu email para confirmar.'),
+        ),
       );
       Navigator.of(context).pop();
     }
@@ -89,9 +92,8 @@ class _RegisterPageState extends State<RegisterPage> {
     final ok = await auth.signInWithOAuth(provider);
     if (!mounted) return;
     if (!ok && auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
       auth.clearError();
     }
   }
@@ -114,7 +116,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 20),
                   Text(
                     'Crie sua conta grátis',
-                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -135,18 +139,28 @@ class _RegisterPageState extends State<RegisterPage> {
                           TextFormField(
                             controller: _nameController,
                             textCapitalization: TextCapitalization.words,
-                            decoration: const InputDecoration(labelText: 'Nome completo'),
+                            decoration: const InputDecoration(
+                              labelText: 'Nome completo',
+                            ),
                             validator: (value) =>
-                                (value == null || value.trim().isEmpty) ? 'Informe seu nome.' : null,
+                                (value == null || value.trim().isEmpty)
+                                ? 'Informe seu nome.'
+                                : null,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(labelText: 'Email'),
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                            ),
                             validator: (value) {
-                              if (value == null || value.trim().isEmpty) return 'Informe o email.';
-                              if (!value.contains('@')) return 'Email inválido.';
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Informe o email.';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Email inválido.';
+                              }
                               return null;
                             },
                           ),
@@ -157,12 +171,16 @@ class _RegisterPageState extends State<RegisterPage> {
                               Expanded(
                                 child: DropdownButtonFormField<String>(
                                   initialValue: _country,
-                                  decoration: const InputDecoration(labelText: 'País'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'País',
+                                  ),
                                   items: [
                                     for (final entry in _countries.entries)
                                       DropdownMenuItem(
                                         value: entry.key,
-                                        child: Text('${entry.key} ${entry.value}'),
+                                        child: Text(
+                                          '${entry.key} ${entry.value}',
+                                        ),
                                       ),
                                   ],
                                   onChanged: (value) =>
@@ -176,7 +194,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                   keyboardType: TextInputType.phone,
                                   decoration: InputDecoration(
                                     labelText: 'WhatsApp',
-                                    hintText: _country == 'BR' ? '(11) 99999-9999' : '+1 555 123 4567',
+                                    hintText: _country == 'BR'
+                                        ? '(11) 99999-9999'
+                                        : '+1 555 123 4567',
                                   ),
                                 ),
                               ),
@@ -190,7 +210,8 @@ class _RegisterPageState extends State<RegisterPage> {
                               labelText: 'Senha',
                               hintText: 'Mínimo 6 caracteres',
                               suffixIcon: IconButton(
-                                onPressed: () => setState(() => _obscure = !_obscure),
+                                onPressed: () =>
+                                    setState(() => _obscure = !_obscure),
                                 icon: Icon(
                                   _obscure
                                       ? Icons.visibility_outlined
@@ -209,7 +230,9 @@ class _RegisterPageState extends State<RegisterPage> {
                           TextFormField(
                             controller: _confirmController,
                             obscureText: _obscure,
-                            decoration: const InputDecoration(labelText: 'Confirmar senha'),
+                            decoration: const InputDecoration(
+                              labelText: 'Confirmar senha',
+                            ),
                             validator: (value) {
                               if (value != _passwordController.text) {
                                 return 'As senhas não coincidem.';
@@ -232,27 +255,9 @@ class _RegisterPageState extends State<RegisterPage> {
                                 : const Text('Criar conta'),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              const Expanded(child: Divider()),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: Text('ou', style: theme.textTheme.bodySmall),
-                              ),
-                              const Expanded(child: Divider()),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: busy ? null : () => _social(OAuthProvider.google),
-                            icon: const Icon(Icons.g_mobiledata, size: 24),
-                            label: const Text('Continuar com Google'),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: busy ? null : () => _social(OAuthProvider.apple),
-                            icon: const Icon(Icons.apple),
-                            label: const Text('Continuar com Apple'),
+                          SocialLoginButtons(
+                            enabled: !busy,
+                            onProvider: _social,
                           ),
                         ],
                       ),

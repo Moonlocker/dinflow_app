@@ -70,6 +70,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/images/icon.png
+
   fonts:
     - family: Inter
       fonts:

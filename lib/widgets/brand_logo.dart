@@ -14,13 +14,15 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings =
-        context.select<AuthProvider, GlobalSettings>((auth) => auth.globalSettings);
+    final settings = context.select<AuthProvider, GlobalSettings>(
+      (auth) => auth.globalSettings,
+    );
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final logoUrl =
-        isDark ? (settings.logoUrlDark ?? settings.logoUrl) : settings.logoUrl;
+    final logoUrl = isDark
+        ? (settings.logoUrlDark ?? settings.logoUrl)
+        : settings.logoUrl;
 
     if (logoUrl != null && logoUrl.isNotEmpty) {
       return Image.network(
@@ -35,35 +37,20 @@ class BrandLogo extends StatelessWidget {
     return _fallback(context, settings.appName);
   }
 
+  /// Fallback de marca: ícone (favicon do DinFlow) + nome do app.
   Widget _fallback(BuildContext context, String appName) {
     final theme = Theme.of(context);
-    final initial = appName.isNotEmpty ? appName[0].toUpperCase() : 'D';
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        SizedBox(
           width: height,
           height: height,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary,
-                theme.colorScheme.primaryContainer,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(height / 4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            initial,
-            style: TextStyle(
-              color: theme.colorScheme.onPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: height * 0.5,
-            ),
+          child: Image.asset(
+            'assets/images/icon.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => _letter(theme, appName),
           ),
         ),
         const SizedBox(width: 8),
@@ -76,6 +63,34 @@ class BrandLogo extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _letter(ThemeData theme, String appName) {
+    final initial = appName.isNotEmpty ? appName[0].toUpperCase() : 'D';
+    return Container(
+      width: height,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.primaryContainer,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(height / 4),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: theme.colorScheme.onPrimary,
+          fontWeight: FontWeight.w700,
+          fontSize: height * 0.5,
+        ),
+      ),
     );
   }
 }
