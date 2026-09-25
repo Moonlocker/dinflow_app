@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/category_icons.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../widgets/capsule_selector.dart';
 import '../../../widgets/month_selector.dart';
@@ -405,7 +406,8 @@ class _CategoryLine extends StatelessWidget {
           child: Icon(icon, size: 16, color: color),
         ),
         const SizedBox(width: 10),
-        Expanded(
+        SizedBox(
+          width: 86,
           child: Text(
             label,
             maxLines: 1,
@@ -413,24 +415,34 @@ class _CategoryLine extends StatelessWidget {
             style: theme.textTheme.bodyMedium,
           ),
         ),
-        if (hasComparison) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}%',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (hasComparison)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${comparison >= 0 ? '+' : ''}${comparison.abs().toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 10),
-        ],
+        ),
+        const SizedBox(width: 10),
         Flexible(
           child: FittedBox(
             fit: BoxFit.scaleDown,
@@ -519,6 +531,7 @@ class _CategoryCarousel extends StatelessWidget {
 
           return _CategoryRingCard(
             name: item.category.name,
+            icon: categoryIconFor(item.category.icon),
             percent: percent,
             color: color,
             sign: sign,
@@ -536,6 +549,7 @@ class _CategoryCarousel extends StatelessWidget {
 class _CategoryRingCard extends StatelessWidget {
   const _CategoryRingCard({
     required this.name,
+    required this.icon,
     required this.percent,
     required this.color,
     required this.sign,
@@ -545,6 +559,7 @@ class _CategoryRingCard extends StatelessWidget {
   });
 
   final String name;
+  final IconData icon;
   final double percent;
   final Color color;
   final String sign;
@@ -593,13 +608,22 @@ class _CategoryRingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
           FittedBox(
             fit: BoxFit.scaleDown,

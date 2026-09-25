@@ -23,6 +23,7 @@ import '../reports/pages/reports_page.dart';
 import '../settings/pages/settings_page.dart';
 import '../superadmin/pages/superadmin_page.dart';
 import '../transactions/pages/transactions_page.dart';
+import '../../widgets/whatsapp_icon.dart';
 import 'widgets/dinflow_bottom_nav.dart';
 
 /// Estrutura principal do app autenticado: cabeçalho, conteúdo e barra inferior.
@@ -295,6 +296,7 @@ class _AppShellState extends State<AppShell> {
                   ),
                 if (!isDashboard) const Spacer(),
                 _ContactButton(),
+                const SizedBox(width: 8),
                 _NotificationsButton(
                   onOpen: () => Navigator.of(context).push(
                     MaterialPageRoute(
@@ -316,6 +318,9 @@ class _AppShellState extends State<AppShell> {
                   _AccountButton(
                     onOpenAdmin: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SuperAdminPage()),
+                    ),
+                    onOpenSettings: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsPage()),
                     ),
                     onSwitchAuthor: () => _showAuthorSheet(context),
                     avatarSize: 18,
@@ -347,6 +352,9 @@ class _DashboardGreeting extends StatelessWidget {
       child: _AccountButton(
         onOpenAdmin: () => Navigator.of(context)
             .push(MaterialPageRoute(builder: (_) => const SuperAdminPage())),
+        onOpenSettings: () =>
+            Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const SettingsPage())),
         onSwitchAuthor: () => _showAuthorSheet(context),
         child: Row(
           children: [
@@ -540,12 +548,14 @@ class _AccountAvatar extends StatelessWidget {
 class _AccountButton extends StatelessWidget {
   const _AccountButton({
     required this.onOpenAdmin,
+    required this.onOpenSettings,
     required this.onSwitchAuthor,
     this.child,
     this.avatarSize = 18,
   });
 
   final VoidCallback onOpenAdmin;
+  final VoidCallback onOpenSettings;
   final VoidCallback onSwitchAuthor;
   final Widget? child;
   final double avatarSize;
@@ -567,6 +577,8 @@ class _AccountButton extends StatelessWidget {
             context.read<AuthProvider>().logout();
           case 'admin':
             onOpenAdmin();
+          case 'settings':
+            onOpenSettings();
           case 'author':
             onSwitchAuthor();
         }
@@ -623,6 +635,16 @@ class _AccountButton extends StatelessWidget {
               ],
             ),
           ),
+        const PopupMenuItem<String>(
+          value: 'settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings_outlined, size: 18),
+              SizedBox(width: 8),
+              Text('Configurações'),
+            ],
+          ),
+        ),
         const PopupMenuItem<String>(
           value: 'logout',
           child: Row(
@@ -691,8 +713,10 @@ class _ContactButton extends StatelessWidget {
     if (whatsapp != null && whatsapp.isNotEmpty) {
       return _SquareIconButton(
         tooltip: 'Falar no WhatsApp',
-        icon: Icons.chat_rounded,
-        color: isDark ? AppColors.mint : theme.colorScheme.primary,
+        child: WhatsAppIcon(
+          size: 20,
+          color: isDark ? AppColors.mint : theme.colorScheme.primary,
+        ),
         onPressed: () => _open(context, whatsapp),
       );
     }
@@ -721,14 +745,16 @@ class _ContactButton extends StatelessWidget {
 /// Ícone no estilo das referências: botão quadrado compacto e arredondado.
 class _SquareIconButton extends StatelessWidget {
   const _SquareIconButton({
-    required this.icon,
+    this.icon,
+    this.child,
     this.color,
     this.tooltip,
     this.onPressed,
     this.badge,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? child;
   final Color? color;
   final String? tooltip;
   final VoidCallback? onPressed;
@@ -753,7 +779,10 @@ class _SquareIconButton extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(icon, size: 20, color: iconColor),
+                if (child != null)
+                  child!
+                else if (icon != null)
+                  Icon(icon, size: 20, color: iconColor),
                 ?badge,
               ],
             ),

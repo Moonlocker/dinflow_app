@@ -85,9 +85,9 @@ class _BillsPageState extends State<BillsPage> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(
-              double.tryParse(amountController.text.replaceAll(',', '.')),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).pop(double.tryParse(amountController.text.replaceAll(',', '.'))),
             child: const Text('Confirmar'),
           ),
         ],
@@ -100,7 +100,9 @@ class _BillsPageState extends State<BillsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Lançar nas transações?'),
-        content: const Text('Deseja registrar este pagamento como uma despesa?'),
+        content: const Text(
+          'Deseja registrar este pagamento como uma despesa?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -117,7 +119,8 @@ class _BillsPageState extends State<BillsPage> {
     if (!mounted) return;
     final billsProvider = context.read<BillsProvider>();
     final finance = context.read<FinanceProvider>();
-    final authorNumber = context.read<AuthorProvider>().effectiveWhatsapp ??
+    final authorNumber =
+        context.read<AuthorProvider>().effectiveWhatsapp ??
         context.read<AuthProvider>().profile?.whatsapp;
 
     try {
@@ -134,9 +137,9 @@ class _BillsPageState extends State<BillsPage> {
         );
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Conta marcada como paga!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Conta marcada como paga!')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -149,9 +152,8 @@ class _BillsPageState extends State<BillsPage> {
     try {
       await context.read<BillsProvider>().unmarkAsPaid(bill.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pagamento desfeito.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Pagamento desfeito.')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -182,14 +184,13 @@ class _BillsPageState extends State<BillsPage> {
     try {
       await context.read<BillsProvider>().deleteBill(bill.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Conta excluída!')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Conta excluída!')));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao excluir a conta.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Erro ao excluir a conta.')));
     }
   }
 
@@ -216,7 +217,9 @@ class _BillsPageState extends State<BillsPage> {
         children: [
           Text(
             'Contas Fixas',
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -236,9 +239,7 @@ class _BillsPageState extends State<BillsPage> {
             const AppCard(
               child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text('Nenhuma conta cadastrada.'),
-                ),
+                child: Center(child: Text('Nenhuma conta cadastrada.')),
               ),
             )
           else
@@ -255,6 +256,7 @@ class _BillsPageState extends State<BillsPage> {
                     isOverdue: !isPaid && _isOverdue(bill),
                     dueLabel: badge.label,
                     dueColor: badge.color,
+                    paidAmount: bills.paymentFor(bill.id)?.amount,
                     onPay: () => _markAsPaid(bill),
                     onUnpay: () => _unmarkAsPaid(bill),
                     onEdit: () => showBillForm(context, bill: bill),

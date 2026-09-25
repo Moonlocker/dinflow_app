@@ -20,6 +20,7 @@ class BillCard extends StatelessWidget {
     required this.onUnpay,
     required this.onEdit,
     required this.onDelete,
+    this.paidAmount,
   });
 
   final Bill bill;
@@ -32,6 +33,9 @@ class BillCard extends StatelessWidget {
   final VoidCallback onUnpay;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Valor real pago no mês exibido (quando [isPaid] é verdadeiro).
+  final double? paidAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +194,7 @@ class BillCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Valor estimado',
+                  isPaid ? 'Valor pago' : 'Valor estimado',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -199,9 +203,14 @@ class BillCard extends StatelessWidget {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  formatCurrency(bill.amount),
+                  formatCurrency(
+                    isPaid && paidAmount != null ? paidAmount! : bill.amount,
+                  ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: isPaid
+                        ? const Color(0xFF10B981)
+                        : theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -229,7 +238,7 @@ class BillCard extends StatelessWidget {
                 ),
                 onPressed: onPay,
                 icon: const Icon(Icons.check_circle_outline, size: 16),
-                label: const Text('Pagar'),
+                label: const Text('Marcar como paga'),
               ),
             )
           else
@@ -238,6 +247,10 @@ class BillCard extends StatelessWidget {
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
+                  side: BorderSide(
+                    color: theme.colorScheme.outline,
+                    width: 1.4,
+                  ),
                 ),
                 onPressed: onUnpay,
                 icon: const Icon(Icons.undo, size: 16),

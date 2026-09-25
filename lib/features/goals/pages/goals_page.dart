@@ -63,9 +63,9 @@ class _GoalsPageState extends State<GoalsPage> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(
-              double.tryParse(controller.text.replaceAll(',', '.')),
-            ),
+            onPressed: () =>
+                Navigator.of(context)
+                    .pop(double.tryParse(controller.text.replaceAll(',', '.'))),
             child: const Text('Adicionar'),
           ),
         ],
@@ -75,9 +75,9 @@ class _GoalsPageState extends State<GoalsPage> {
     try {
       await context.read<FinanceProvider>().addToGoal(goal.id, value);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Valor adicionado à meta!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Valor adicionado à meta!')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,14 +108,13 @@ class _GoalsPageState extends State<GoalsPage> {
     try {
       await context.read<FinanceProvider>().deleteGoal(goal.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Meta excluída!')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Meta excluída!')));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao excluir a meta.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Erro ao excluir a meta.')));
     }
   }
 
@@ -164,7 +163,9 @@ class _GoalsPageState extends State<GoalsPage> {
         children: [
           Text(
             'Metas Financeiras',
-            style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -180,7 +181,9 @@ class _GoalsPageState extends State<GoalsPage> {
               children: [
                 Text(
                   'Progresso Geral das Metas Ativas',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ClipRRect(
@@ -189,7 +192,9 @@ class _GoalsPageState extends State<GoalsPage> {
                     value: totalProgress,
                     minHeight: 8,
                     backgroundColor: theme.colorScheme.outline,
-                    valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.colorScheme.primary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -214,6 +219,20 @@ class _GoalsPageState extends State<GoalsPage> {
                     label: Text('${filter.$2} (${filter.$3})'),
                     selected: _filter == filter.$1,
                     onSelected: (_) => setState(() => _filter = filter.$1),
+                    side: BorderSide(
+                      color: _filter == filter.$1
+                          ? Colors.transparent
+                          : theme.colorScheme.outline,
+                      width: 1.4,
+                    ),
+                    labelStyle: TextStyle(
+                      color: _filter == filter.$1
+                          ? theme.colorScheme.onSecondaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
+                      fontWeight: _filter == filter.$1
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],

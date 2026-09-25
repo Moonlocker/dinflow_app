@@ -12,7 +12,6 @@ import '../../../widgets/capsule_selector.dart';
 import '../../../widgets/empty_state.dart';
 import '../../../widgets/month_selector.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../dashboard/widgets/summary_card.dart';
 import '../../finance/providers/finance_provider.dart';
 import '../services/report_exporter.dart';
 
@@ -267,7 +266,6 @@ class _ReportsPageState extends State<ReportsPage> {
     final periodExpense = filtered
         .where((t) => t.isExpense)
         .fold(0.0, (s, t) => s + t.amount);
-    final periodBalance = periodIncome - periodExpense;
     final series = _monthlySeries(finance, filtered);
     final years = finance.transactions.map((t) => t.date.year).toSet().toList()
       ..sort((a, b) => b.compareTo(a));
@@ -347,37 +345,6 @@ class _ReportsPageState extends State<ReportsPage> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: SummaryCard(
-                title: 'Entradas',
-                value: formatCurrency(periodIncome),
-                icon: Icons.trending_up,
-                accent: const Color(0xFF10B981),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SummaryCard(
-                title: 'Saídas',
-                value: formatCurrency(periodExpense),
-                icon: Icons.trending_down,
-                accent: const Color(0xFFEF4444),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SummaryCard(
-          title: 'Saldo do período',
-          value: formatCurrency(periodBalance),
-          icon: Icons.attach_money,
-          accent: periodBalance >= 0
-              ? const Color(0xFF3B82F6)
-              : const Color(0xFFF97316),
         ),
         const SizedBox(height: 16),
         AppCard(
