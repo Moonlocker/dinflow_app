@@ -68,8 +68,24 @@ class OpenFinanceProvider extends ChangeNotifier {
     await load(userId, force: true);
   }
 
-  Future<String> createConnectToken({String? itemId}) {
-    return _repository.createConnectToken(itemId: itemId);
+  Future<ConnectAuthorization> createConnectionAuthorization({
+    String? itemId,
+    String? institutionId,
+    String? institutionName,
+    String? document,
+    String? companyDocument,
+  }) {
+    return _repository.createConnectionAuthorization(
+      itemId: itemId,
+      institutionId: institutionId,
+      institutionName: institutionName,
+      document: document,
+      companyDocument: companyDocument,
+    );
+  }
+
+  Future<List<OpenFinanceInstitution>> listInstitutions() {
+    return _repository.listInstitutions();
   }
 
   Future<void> sync({String? connectionId}) async {

@@ -66,17 +66,49 @@ class OpenFinanceRepository {
         .toList();
   }
 
-  Future<String> createConnectToken({String? itemId}) async {
+  Future<ConnectAuthorization> createConnectionAuthorization({
+    String? itemId,
+    String? institutionId,
+    String? institutionName,
+    String? document,
+    String? companyDocument,
+  }) async {
+    final body = <String, dynamic>{};
+    if (itemId != null) body['itemId'] = itemId;
+    if (institutionId != null) body['institutionId'] = institutionId;
+    if (institutionName != null) body['institutionName'] = institutionName;
+    if (document != null) body['document'] = document;
+    if (companyDocument != null) body['companyDocument'] = companyDocument;
+
     final response = await _client.functions.invoke(
       'open-finance-connect-token',
-      body: itemId != null ? {'itemId': itemId} : <String, dynamic>{},
+      body: body,
     );
     final data = response.data;
-    final token = data is Map ? data['accessToken'] as String? : null;
-    if (token == null || token.isEmpty) {
+    if (data is! Map) {
       throw Exception('Não foi possível iniciar a conexão.');
     }
-    return token;
+    if (data['error'] != null) {
+      throw Exception(data['error'].toString());
+    }
+    return ConnectAuthorization.fromMap(Map<String, dynamic>.from(data));
+  }
+
+  Future<List<OpenFinanceInstitution>> listInstitutions() async {
+    final response = await _client.functions.invoke(
+      'open-finance-institutions',
+      body: <String, dynamic>{},
+    );
+    final data = response.data;
+    if (data is! Map || data['error'] != null) {
+      throw Exception('Não foi possível carregar os bancos.');
+    }
+    final list = (data['institutions'] as List?) ?? const [];
+    return list
+        .map((row) =>
+            OpenFinanceInstitution.fromMap(Map<String, dynamic>.from(row)))
+        .where((institution) => institution.id.isNotEmpty)
+        .toList();
   }
 
   Future<void> sync({String? connectionId}) async {

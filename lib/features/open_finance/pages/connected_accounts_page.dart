@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../models/open_finance.dart';
 import '../../../widgets/app_card.dart';
 import '../../../widgets/empty_state.dart';
 import '../providers/open_finance_provider.dart';
 import 'pluggy_connect_page.dart';
 
+class _ConnectionInput {
+  const _ConnectionInput({
+    required this.institutionId,
+    required this.institutionName,
+    required this.document,
+    this.companyDocument,
+  });
+
+  final String institutionId;
+  final String institutionName;
+  final String document;
+  final String? companyDocument;
+}
+
 /// Tela "Contas conectadas" do módulo Open Finance.
-/// Linguagem simples, sem termos técnicos (item, token, webhook, etc.).
+/// Suporta tanto o widget (Pluggy) quanto o consentimento por redirect
+/// (Polp/Celcoin). Linguagem simples, sem termos técnicos.
 class ConnectedAccountsPage extends StatefulWidget {
   const ConnectedAccountsPage({super.key});
 
@@ -23,35 +40,72 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
     final provider = context.read<OpenFinanceProvider>();
     setState(() => _connecting = true);
     try {
-      final token = await provider.createConnectToken(itemId: itemId);
+      var authorization = await provider.createConnectionAuthorization(
+        itemId: itemId,
+      );
+
+      if (authorization.needsInput) {
+        final input = await _requestConnectionInput();
+        if (input == null) return;
+        authorization = await provider.createConnectionAuthorization(
+          itemId: itemId,
+          institutionId: input.institutionId,
+          institutionName: input.institutionName,
+          document: input.document,
+          companyDocument: input.companyDocument,
+        );
+      }
+
+      await _handleAuthorization(provider, authorization, itemId: itemId);
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Não foi possível conectar o banco.');
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
+  }
+
+  Future<void> _handleAuthorization(
+    OpenFinanceProvider provider,
+    ConnectAuthorization authorization, {
+    String? itemId,
+  }) async {
+    if (authorization.mode == 'widget' && authorization.accessToken != null) {
       if (!mounted) return;
       final result = await Navigator.of(context).push<String>(
         MaterialPageRoute(
           builder: (_) => PluggyConnectPage(
-            connectToken: token,
+            connectToken: authorization.accessToken!,
             itemId: itemId,
           ),
         ),
       );
-      if (!mounted) return;
-      if (result == null) return; // cancelado
+      if (!mounted || result == null) return;
       await provider.sync();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Banco conectado com sucesso. Estamos organizando suas movimentações.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível conectar o banco.')),
-      );
-    } finally {
-      if (mounted) setState(() => _connecting = false);
+      _showMessage('Banco conectado com sucesso.');
+      return;
     }
+
+    if (authorization.mode == 'redirect' &&
+        authorization.redirectUrl != null) {
+      final opened = await launchUrl(
+        Uri.parse(authorization.redirectUrl!),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted) return;
+      _showMessage(
+        opened
+            ? 'Autorize no seu banco e volte ao DinFlow.'
+            : 'Não foi possível abrir o banco.',
+      );
+      return;
+    }
+
+    // Consentimento já autorizado (ex.: banco já conectado).
+    await provider.sync();
+    if (!mounted) return;
+    _showMessage('Banco conectado com sucesso.');
   }
 
   Future<void> _sync({String? connectionId}) async {
@@ -59,14 +113,10 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
     try {
       await provider.sync(connectionId: connectionId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sincronizado!')),
-      );
+      _showMessage('Sincronizado!');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível sincronizar agora.')),
-      );
+      _showMessage('Não foi possível sincronizar agora.');
     }
   }
 
@@ -96,10 +146,30 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
       await context.read<OpenFinanceProvider>().disconnect(connectionId);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível desconectar.')),
-      );
+      _showMessage('Não foi possível desconectar.');
     }
+  }
+
+  Future<_ConnectionInput?> _requestConnectionInput() async {
+    final provider = context.read<OpenFinanceProvider>();
+    List<OpenFinanceInstitution> institutions = [];
+    try {
+      institutions = await provider.listInstitutions();
+    } catch (_) {
+      institutions = [];
+    }
+    if (!mounted) return null;
+
+    return showModalBottomSheet<_ConnectionInput>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ConnectionInputSheet(institutions: institutions),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -162,7 +232,7 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
     );
   }
 
-  Widget _buildConnection(dynamic connection) {
+  Widget _buildConnection(OpenFinanceConnection connection) {
     final theme = Theme.of(context);
     final provider = context.read<OpenFinanceProvider>();
     final connectionAccounts = provider.accounts
@@ -171,7 +241,6 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
     final connectionCards = provider.cards
         .where((card) => card.connectionId == connection.id)
         .toList();
-    final needsAttention = connection.needsAttention == true;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -213,7 +282,7 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
                 ),
               ],
             ),
-            if (needsAttention) ...[
+            if (connection.needsAttention) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -270,7 +339,7 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
     );
   }
 
-  Widget _buildCard(dynamic card, OpenFinanceProvider provider) {
+  Widget _buildCard(OpenFinanceCard card, OpenFinanceProvider provider) {
     final theme = Theme.of(context);
     final cardBills = provider.bills
         .where((bill) => bill.cardId == card.id)
@@ -385,5 +454,141 @@ class _ConnectedAccountsPageState extends State<ConnectedAccountsPage> {
   String _lastSyncLabel(DateTime? value) {
     if (value == null) return 'ainda não sincronizado';
     return 'atualizado em ${formatDateOnly(value.toIso8601String())}';
+  }
+}
+
+/// Formulário do fluxo por consentimento: escolha do banco + CPF/CNPJ.
+class _ConnectionInputSheet extends StatefulWidget {
+  const _ConnectionInputSheet({required this.institutions});
+
+  final List<OpenFinanceInstitution> institutions;
+
+  @override
+  State<_ConnectionInputSheet> createState() => _ConnectionInputSheetState();
+}
+
+class _ConnectionInputSheetState extends State<_ConnectionInputSheet> {
+  final _documentController = TextEditingController();
+  final _companyController = TextEditingController();
+  String? _institutionId;
+
+  @override
+  void dispose() {
+    _documentController.dispose();
+    _companyController.dispose();
+    super.dispose();
+  }
+
+  OpenFinanceInstitution? get _selected {
+    for (final institution in widget.institutions) {
+      if (institution.id == _institutionId) return institution;
+    }
+    return null;
+  }
+
+  String _onlyDigits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mediaQuery = MediaQuery.of(context);
+    final requiresCnpj = _selected?.requiresCompanyDocument ?? false;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Conectar banco',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Escolha a instituição e informe seus dados para autorizar no banco. '
+            'O DinFlow não armazena sua senha bancária.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _institutionId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Banco'),
+            items: [
+              for (final institution in widget.institutions)
+                DropdownMenuItem(
+                  value: institution.id,
+                  child: Text(
+                    institution.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: (value) => setState(() => _institutionId = value),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _documentController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'CPF',
+              hintText: '00000000000',
+            ),
+          ),
+          if (requiresCnpj) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _companyController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'CNPJ',
+                hintText: '00000000000000',
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: () {
+              final document = _onlyDigits(_documentController.text);
+              final company = _onlyDigits(_companyController.text);
+              if (_institutionId == null || document.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Escolha o banco e informe o CPF.'),
+                  ),
+                );
+                return;
+              }
+              if (requiresCnpj && company.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Informe o CNPJ da empresa.')),
+                );
+                return;
+              }
+              Navigator.of(context).pop(
+                _ConnectionInput(
+                  institutionId: _institutionId!,
+                  institutionName: _selected?.name ?? '',
+                  document: document,
+                  companyDocument: company.isEmpty ? null : company,
+                ),
+              );
+            },
+            child: const Text('Ir para o banco'),
+          ),
+        ],
+      ),
+    );
   }
 }

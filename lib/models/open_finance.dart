@@ -208,3 +208,67 @@ double? _parseDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse(value.toString());
 }
+
+/// Instituição disponível para conexão (fluxo por consentimento).
+class OpenFinanceInstitution {
+  const OpenFinanceInstitution({
+    required this.id,
+    required this.name,
+    this.type,
+    this.status,
+    this.logoUrl,
+    this.credentials = const [],
+  });
+
+  final String id;
+  final String name;
+  final String? type; // PERSONAL | BUSINESS | BOTH
+  final String? status;
+  final String? logoUrl;
+  final List<String> credentials;
+
+  bool get requiresCompanyDocument => type == 'BUSINESS';
+
+  factory OpenFinanceInstitution.fromMap(Map<String, dynamic> map) {
+    return OpenFinanceInstitution(
+      id: map['id'] as String,
+      name: (map['name'] ?? 'Instituição') as String,
+      type: map['type'] as String?,
+      status: map['status'] as String?,
+      logoUrl: map['logoUrl'] as String?,
+      credentials: (map['credentials'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+}
+
+/// Resultado do início da conexão.
+class ConnectAuthorization {
+  const ConnectAuthorization({
+    this.mode,
+    this.accessToken,
+    this.redirectUrl,
+    this.connectionId,
+    this.status,
+    this.requires = const [],
+  });
+
+  final String? mode; // widget | redirect | already_authorized
+  final String? accessToken;
+  final String? redirectUrl;
+  final String? connectionId;
+  final String? status;
+  final List<String> requires;
+
+  bool get needsInput => requires.isNotEmpty;
+
+  factory ConnectAuthorization.fromMap(Map<String, dynamic> map) {
+    return ConnectAuthorization(
+      mode: map['mode'] as String?,
+      accessToken: map['accessToken'] as String?,
+      redirectUrl: map['redirectUrl'] as String?,
+      connectionId: map['connectionId'] as String?,
+      status: map['status'] as String?,
+      requires: (map['requires'] as List?)?.cast<String>() ?? const [],
+    );
+  }
+}
