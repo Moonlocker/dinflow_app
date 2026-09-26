@@ -10,6 +10,7 @@ class Transaction {
     this.categoryId,
     this.authorNumber,
     this.transactionId,
+    this.source,
     this.createdAt,
   });
 
@@ -22,6 +23,9 @@ class Transaction {
   final String? categoryId;
   final String? authorNumber;
   final String? transactionId;
+
+  /// Origem do lançamento: `manual` | `whatsapp` | `open_finance`.
+  final String? source;
   final DateTime? createdAt;
 
   bool get isIncome => type == 'income';
@@ -38,6 +42,7 @@ class Transaction {
       categoryId: map['category_id'] as String?,
       authorNumber: map['author_number'] as String?,
       transactionId: map['transaction_id'] as String?,
+      source: map['source'] as String?,
       createdAt: _parseDate(map['created_at']),
     );
   }

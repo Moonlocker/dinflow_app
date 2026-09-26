@@ -548,7 +548,7 @@ class _TransactionRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$categoryName • ${formatDateOnly(transaction.date.toIso8601String())}',
+                  '$categoryName • ${formatDateOnly(transaction.date.toIso8601String())}${_sourceLabel(transaction.source)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -747,5 +747,16 @@ class _TransactionFiltersSheetState extends State<_TransactionFiltersSheet> {
         ],
       ),
     );
+  }
+}
+
+String _sourceLabel(String? source) {
+  switch (source) {
+    case 'open_finance':
+      return ' - Open Finance';
+    case 'whatsapp':
+      return ' - WhatsApp';
+    default:
+      return '';
   }
 }

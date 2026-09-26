@@ -11,6 +11,7 @@ import '../../../widgets/app_card.dart';
 import '../../affiliate/pages/affiliate_page.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../impersonation/providers/impersonation_provider.dart';
+import '../../open_finance/pages/connected_accounts_page.dart';
 import '../../subscription/pages/subscription_page.dart';
 import 'category_settings_page.dart';
 import 'security_settings_page.dart';
@@ -537,6 +538,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   subtitle: 'Compartilhe seu link e ganhe pontos',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const AffiliatePage()),
+                  ),
+                ),
+              ],
+              if (AppConfig.openFinanceEnabled) ...[
+                const Divider(height: 1),
+                _SettingsNavTile(
+                  icon: Icons.account_balance_outlined,
+                  title: 'Contas conectadas',
+                  subtitle:
+                      'Importe suas movimentações automaticamente pelo banco',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ConnectedAccountsPage(),
+                    ),
                   ),
                 ),
               ],

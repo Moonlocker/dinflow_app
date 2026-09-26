@@ -18,6 +18,7 @@ import '../goals/pages/goals_page.dart';
 import '../impersonation/providers/impersonation_provider.dart';
 import '../notifications/pages/notifications_page.dart';
 import '../notifications/providers/notifications_provider.dart';
+import '../open_finance/providers/open_finance_provider.dart';
 import '../page_visibility/providers/page_visibility_provider.dart';
 import '../reports/pages/reports_page.dart';
 import '../settings/pages/settings_page.dart';
@@ -103,6 +104,7 @@ class _AppShellState extends State<AppShell> {
     context.read<BillsProvider>().load(userId, force: force);
     context.read<NotificationsProvider>().load(userId, force: force);
     context.read<EducationProvider>().load(force: force);
+    context.read<OpenFinanceProvider>().load(userId, force: force);
     context.read<AuthorProvider>().load(
       userId: userId,
       mainWhatsapp: profile?.whatsapp,

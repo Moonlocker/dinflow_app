@@ -43,4 +43,27 @@ class AppConfig {
   static const List<OAuthProvider> enabledOAuthProviders = [
     OAuthProvider.google,
   ];
+
+  // ==========================================================================
+  // Open Finance (módulo isolado e opcional)
+  // Desativado por padrão. Ative com:
+  //   --dart-define=OPEN_FINANCE_ENABLED=true
+  // A autoridade real permanece sendo a flag do backend (OPEN_FINANCE_ENABLED
+  // nos Secrets das Edge Functions).
+  // ==========================================================================
+  static const bool openFinanceEnabled = bool.fromEnvironment(
+    'OPEN_FINANCE_ENABLED',
+    defaultValue: false,
+  );
+
+  static const String openFinanceProvider = String.fromEnvironment(
+    'OPEN_FINANCE_PROVIDER',
+    defaultValue: 'pluggy',
+  );
+
+  /// Sandbox por padrão; produção apenas após validar todos os fluxos.
+  static const bool openFinanceSandbox = bool.fromEnvironment(
+    'OPEN_FINANCE_SANDBOX',
+    defaultValue: true,
+  );
 }
