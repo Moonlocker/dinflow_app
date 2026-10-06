@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/utils/formatters.dart';
 import '../../../models/bill.dart';
@@ -66,10 +67,14 @@ class _BillsPageState extends State<BillsPage> {
     return dueDate.isBefore(today);
   }
 
+  Future<void> _openBillLink(Bill bill) => launchBillLink(context, bill.link);
+
   Future<void> _markAsPaid(Bill bill) async {
-    final result = await showDialog<({double amount, bool addToTransactions})>(
+    final result = await showModalBottomSheet<({double amount, bool addToTransactions})>(
       context: context,
-      builder: (context) => _PaymentDialog(bill: bill),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _PaymentSheet(bill: bill),
     );
 
     if (result == null || !mounted) return;
@@ -219,6 +224,7 @@ class _BillsPageState extends State<BillsPage> {
                     paidAmount: bills.paymentFor(bill.id)?.amount,
                     onPay: () => _markAsPaid(bill),
                     onUnpay: () => _unmarkAsPaid(bill),
+                    onOpenLink: () => _openBillLink(bill),
                     onEdit: () => showBillForm(context, bill: bill),
                     onDelete: () => _confirmDelete(bill),
                   );
@@ -232,17 +238,31 @@ class _BillsPageState extends State<BillsPage> {
   }
 }
 
-/// Diálogo único para registrar o pagamento e, opcionalmente, lançar a despesa.
-class _PaymentDialog extends StatefulWidget {
-  const _PaymentDialog({required this.bill});
+/// Abre o link de pagamento cadastrado na conta (quando existir).
+Future<void> launchBillLink(BuildContext context, String? link) async {
+  final trimmed = link?.trim() ?? '';
+  if (trimmed.isEmpty) return;
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null ||
+      !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir o link da conta.')),
+    );
+  }
+}
+
+/// Bottom sheet para registrar o pagamento e, opcionalmente, lançar a despesa.
+class _PaymentSheet extends StatefulWidget {
+  const _PaymentSheet({required this.bill});
 
   final Bill bill;
 
   @override
-  State<_PaymentDialog> createState() => _PaymentDialogState();
+  State<_PaymentSheet> createState() => _PaymentSheetState();
 }
 
-class _PaymentDialogState extends State<_PaymentDialog> {
+class _PaymentSheetState extends State<_PaymentSheet> {
   late final TextEditingController _amountController;
   bool _addToTransactions = true;
 
@@ -250,7 +270,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   void initState() {
     super.initState();
     _amountController = TextEditingController(
-      text: widget.bill.amount > 0 ? widget.bill.amount.toString() : '',
+      text: widget.bill.amount > 0
+          ? widget.bill.amount.toStringAsFixed(2).replaceAll('.', ',')
+          : '',
     );
   }
 
@@ -259,6 +281,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     _amountController.dispose();
     super.dispose();
   }
+
+  bool get _hasLink =>
+      widget.bill.link != null && widget.bill.link!.trim().isNotEmpty;
 
   void _submit() {
     final amount = double.tryParse(_amountController.text.replaceAll(',', '.'));
@@ -275,17 +300,72 @@ class _PaymentDialogState extends State<_PaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Registrar pagamento'),
-      content: Column(
+    final theme = Theme.of(context);
+    final mediaQuery = MediaQuery.of(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 4,
+        bottom: mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 20,
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.payments_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Registrar pagamento',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.bill.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           TextField(
             controller: _amountController,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Valor pago (R\$)'),
+            style: theme.textTheme.titleMedium,
+            decoration: const InputDecoration(
+              labelText: 'Valor pago',
+              prefixText: r'R$ ',
+              hintText: '0,00',
+            ),
           ),
+          const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _addToTransactions,
@@ -293,15 +373,43 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             title: const Text('Lançar nas transações'),
             subtitle: const Text('Registrar como despesa'),
           ),
+          if (_hasLink) ...[
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: () => launchBillLink(context, widget.bill.link),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Abrir link da conta'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _submit,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Confirmar'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('Confirmar')),
-      ],
     );
   }
 }

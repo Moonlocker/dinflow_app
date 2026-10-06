@@ -91,6 +91,7 @@ class _DashboardPageState extends State<DashboardPage> {
             date: dashboard.currentDate,
             onPrevious: dashboard.previousMonth,
             onNext: dashboard.nextMonth,
+            onSelect: dashboard.goToMonth,
           ),
           if (context.watch<AuthorProvider>().hasMultiple) ...[
             const SizedBox(height: 12),

@@ -20,6 +20,7 @@ class BillCard extends StatelessWidget {
     required this.onUnpay,
     required this.onEdit,
     required this.onDelete,
+    this.onOpenLink,
     this.paidAmount,
   });
 
@@ -34,6 +35,9 @@ class BillCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  /// Abre o link de pagamento cadastrado na conta (quando existir).
+  final VoidCallback? onOpenLink;
+
   /// Valor real pago no mês exibido (quando [isPaid] é verdadeiro).
   final double? paidAmount;
 
@@ -41,6 +45,7 @@ class BillCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hasLink = bill.link != null && bill.link!.trim().isNotEmpty;
 
     final Color background;
     final Color border;
@@ -229,7 +234,25 @@ class BillCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 12),
-          if (!isPaid)
+          if (!isPaid) ...[
+            if (hasLink && onOpenLink != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    side: BorderSide(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                      width: 1.4,
+                    ),
+                  ),
+                  onPressed: onOpenLink,
+                  icon: const Icon(Icons.open_in_new, size: 16),
+                  label: const Text('Abrir link da conta'),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             SizedBox(
               width: double.infinity,
               child: FilledButton.tonalIcon(
@@ -240,8 +263,8 @@ class BillCard extends StatelessWidget {
                 icon: const Icon(Icons.check_circle_outline, size: 16),
                 label: const Text('Marcar como paga'),
               ),
-            )
-          else
+            ),
+          ] else
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(

@@ -298,6 +298,7 @@ class _ReportsPageState extends State<ReportsPage> {
             date: finance.currentDate,
             onPrevious: finance.previousMonth,
             onNext: finance.nextMonth,
+            onSelect: finance.goToMonth,
           )
         else
           _PeriodLabelRow(label: _periodLabel(finance)),

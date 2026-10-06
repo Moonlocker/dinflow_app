@@ -27,6 +27,7 @@ class _BillFormSheetState extends State<BillFormSheet> {
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
   final _dueDayController = TextEditingController();
+  final _linkController = TextEditingController();
   final _descriptionController = TextEditingController();
   String? _categoryId;
   bool _saving = false;
@@ -41,6 +42,7 @@ class _BillFormSheetState extends State<BillFormSheet> {
       _nameController.text = bill.name;
       _amountController.text = bill.amount.toString();
       _dueDayController.text = bill.dueDay.toString();
+      _linkController.text = bill.link ?? '';
       _descriptionController.text = bill.description ?? '';
       _categoryId = bill.categoryId;
     }
@@ -51,6 +53,7 @@ class _BillFormSheetState extends State<BillFormSheet> {
     _nameController.dispose();
     _amountController.dispose();
     _dueDayController.dispose();
+    _linkController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -64,6 +67,9 @@ class _BillFormSheetState extends State<BillFormSheet> {
           double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0,
       'due_day': int.tryParse(_dueDayController.text) ?? 1,
       'category_id': _categoryId,
+      'link': _linkController.text.trim().isEmpty
+          ? null
+          : _linkController.text.trim(),
       'description': _descriptionController.text.trim(),
     };
 
@@ -187,6 +193,16 @@ class _BillFormSheetState extends State<BillFormSheet> {
                 onChanged: (value) => setState(() => _categoryId = value),
                 validator: (value) =>
                     value == null ? 'Selecione uma categoria.' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _linkController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'Link para pagamento (opcional)',
+                  hintText: 'https://...',
+                  helperText: 'Ex.: site onde você gera a conta para pagamento.',
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(

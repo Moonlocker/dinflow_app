@@ -8,6 +8,7 @@ class Bill {
     required this.dueDay,
     this.categoryId,
     this.description,
+    this.link,
     this.isActive = true,
   });
 
@@ -18,6 +19,9 @@ class Bill {
   final int dueDay;
   final String? categoryId;
   final String? description;
+
+  /// URL opcional para o usuário gerar/pagar a conta.
+  final String? link;
   final bool isActive;
 
   factory Bill.fromMap(Map<String, dynamic> map) {
@@ -29,6 +33,7 @@ class Bill {
       dueDay: (map['due_day'] as num?)?.toInt() ?? 1,
       categoryId: map['category_id'] as String?,
       description: map['description'] as String?,
+      link: map['link'] as String?,
       isActive: (map['is_active'] ?? true) as bool,
     );
   }

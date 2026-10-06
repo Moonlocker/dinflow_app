@@ -3,28 +3,108 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 
-/// Seletor de mês no estilo das referências:
-/// `‹ Março [ Abril ] Maio ›` — mês atual em cápsula verde-menta.
+/// Seletor de mês rolável: `‹ [jan] [fev] [ Março ] [abr] [mai] ›`.
 ///
-/// Compartilhado entre o Dashboard e a tela de Relatórios para manter a
-/// identidade visual consistente.
-class MonthSelector extends StatelessWidget {
+/// Permite arrastar horizontalmente para percorrer os meses e tocar em
+/// qualquer mês visível para selecioná-lo, sem depender apenas das setas.
+/// Compartilhado entre o Dashboard e a tela de Relatórios.
+class MonthSelector extends StatefulWidget {
   const MonthSelector({
     super.key,
     required this.date,
     required this.onPrevious,
     required this.onNext,
+    this.onSelect,
   });
 
   final DateTime date;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
+  /// Seleciona diretamente o mês tocado na faixa rolável.
+  final ValueChanged<DateTime>? onSelect;
+
+  @override
+  State<MonthSelector> createState() => _MonthSelectorState();
+}
+
+class _MonthSelectorState extends State<MonthSelector> {
+  static const int _baseYear = 2000;
+  static const int _endYear = 2100;
+  static const double _itemExtent = 104;
+  static final int _itemCount = (_endYear - _baseYear + 1) * 12;
+
+  final ScrollController _controller = ScrollController();
+  double _viewportWidth = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int _indexFor(DateTime date) => (date.year - _baseYear) * 12 + (date.month - 1);
+
+  DateTime _dateFor(int index) {
+    final year = _baseYear + index ~/ 12;
+    final month = index % 12 + 1;
+    return DateTime(year, month, 1);
+  }
+
+  double _offsetForIndex(int index) =>
+      index * _itemExtent - (_viewportWidth - _itemExtent) / 2;
+
+  void _centerOnSelected({bool animate = false}) {
+    if (!_controller.hasClients || _viewportWidth <= 0) return;
+    final position = _controller.position;
+    final target = _offsetForIndex(_indexFor(widget.date)).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (animate) {
+      _controller.animateTo(
+        target,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _controller.jumpTo(target);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MonthSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.date.year != widget.date.year ||
+        oldWidget.date.month != widget.date.month) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerOnSelected(animate: true);
+      });
+    }
+  }
+
+  void _select(DateTime month) {
+    final onSelect = widget.onSelect;
+    if (onSelect != null) {
+      onSelect(month);
+      return;
+    }
+    // Sem callback direto: aproxima usando as setas.
+    var current = widget.date;
+    while (current.year != month.year || current.month != month.month) {
+      if (month.isBefore(current)) {
+        widget.onPrevious();
+        current = DateTime(current.year, current.month - 1, 1);
+      } else {
+        widget.onNext();
+        current = DateTime(current.year, current.month + 1, 1);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final previous = DateTime(date.year, date.month - 1, 1);
-    final next = DateTime(date.year, date.month + 1, 1);
     final arrowColor = theme.brightness == Brightness.dark
         ? AppColors.mint
         : theme.colorScheme.primary;
@@ -35,25 +115,45 @@ class MonthSelector extends StatelessWidget {
         children: [
           IconButton(
             visualDensity: VisualDensity.compact,
-            onPressed: onPrevious,
+            onPressed: widget.onPrevious,
             icon: Icon(Icons.chevron_left, size: 22, color: arrowColor),
             tooltip: 'Mês anterior',
           ),
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(child: _SideLabel(text: formatMonth(previous))),
-                const SizedBox(width: 8),
-                Flexible(child: _SelectedMonth(text: formatMonth(date))),
-                const SizedBox(width: 8),
-                Flexible(child: _SideLabel(text: formatMonth(next))),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth != _viewportWidth) {
+                  _viewportWidth = constraints.maxWidth;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _centerOnSelected();
+                  });
+                }
+                return SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    controller: _controller,
+                    scrollDirection: Axis.horizontal,
+                    itemExtent: _itemExtent,
+                    itemCount: _itemCount,
+                    itemBuilder: (context, index) {
+                      final month = _dateFor(index);
+                      final selected =
+                          month.year == widget.date.year &&
+                          month.month == widget.date.month;
+                      return _MonthChip(
+                        label: formatMonth(month),
+                        selected: selected,
+                        onTap: () => _select(month),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            onPressed: onNext,
+            onPressed: widget.onNext,
             icon: Icon(Icons.chevron_right, size: 22, color: arrowColor),
             tooltip: 'Próximo mês',
           ),
@@ -63,69 +163,72 @@ class MonthSelector extends StatelessWidget {
   }
 }
 
-class _SideLabel extends StatelessWidget {
-  const _SideLabel({required this.text});
+class _MonthChip extends StatelessWidget {
+  const _MonthChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        text,
-        maxLines: 1,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-      ),
-    );
-  }
-}
-
-class _SelectedMonth extends StatelessWidget {
-  const _SelectedMonth({required this.text});
-
-  final String text;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fill = theme.brightness == Brightness.dark
-        ? AppColors.mint
-        : theme.colorScheme.primary;
-    final label = theme.brightness == Brightness.dark
-        ? AppColors.onMint
-        : theme.colorScheme.onPrimary;
+    final isDark = theme.brightness == Brightness.dark;
 
-    final pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(999),
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: selected
+            ? Material(
+                color: isDark ? AppColors.mint : theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(999),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 7,
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: isDark
+                            ? AppColors.onMint
+                            : theme.colorScheme.onPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            text,
-            maxLines: 1,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: label,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down, size: 16, color: label),
-        ],
-      ),
-    );
-
-    // `FittedBox` + `Flexible` no pai: se faltar espaço (telas estreitas ou
-    // taxa de fonte maior), a cápsula encolhe em vez de cortar o mês.
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: pill,
     );
   }
 }

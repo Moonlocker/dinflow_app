@@ -166,6 +166,15 @@ class FinanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Seleciona diretamente um mês (usado pelo seletor de meses rolável).
+  void goToMonth(DateTime date) {
+    if (date.year == _currentDate.year && date.month == _currentDate.month) {
+      return;
+    }
+    _currentDate = DateTime(date.year, date.month, 1);
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------- Transações
 
   Future<void> addTransaction({

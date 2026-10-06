@@ -319,17 +319,16 @@ class _AppShellState extends State<AppShell> {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (!isDashboard)
-                  _AccountButton(
-                    onOpenAdmin: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SuperAdminPage()),
-                    ),
-                    onOpenSettings: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SettingsPage()),
-                    ),
-                    onSwitchAuthor: () => _showAuthorSheet(context),
-                    avatarSize: 18,
+                _AccountButton(
+                  onOpenAdmin: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SuperAdminPage()),
                   ),
+                  onOpenSettings: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsPage()),
+                  ),
+                  onSwitchAuthor: () => _showAuthorSheet(context),
+                  avatarSize: 18,
+                ),
               ],
             ),
           ),
@@ -339,8 +338,11 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// Saudação com avatar (cabeçalho do dashboard). Tocar abre o menu de conta.
+/// Saudação do cabeçalho do dashboard. O avatar fica no botão de conta, à
+/// direita, igual às demais telas.
 class _DashboardGreeting extends StatelessWidget {
+  const _DashboardGreeting();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -354,91 +356,26 @@ class _DashboardGreeting extends StatelessWidget {
     final displayName = name.trim().isEmpty ? 'Usuário' : name.trim();
 
     return Expanded(
-      child: _AccountButton(
-        onOpenAdmin: () => Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const SuperAdminPage())),
-        onOpenSettings: () =>
-            Navigator.of(context)
-                .push(MaterialPageRoute(builder: (_) => const SettingsPage())),
-        onSwitchAuthor: () => _showAuthorSheet(context),
-        child: Row(
-          children: [
-            _AccountAvatar(activeProfile: activeProfile, radius: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Olá',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Olá',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAuthorSheet(BuildContext context) {
-    final authors = context.read<AuthorProvider>();
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Text(
-                'Alternar usuário',
-                style: Theme.of(sheetContext).textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700),
-              ),
+          ),
+          Text(
+            displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.1,
             ),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined),
-              title: const Text('Todos'),
-              selected: authors.selected == null,
-              onTap: () {
-                authors.select(null);
-                context.read<FinanceProvider>().setAuthorFilter(null);
-                Navigator.pop(sheetContext);
-              },
-            ),
-            for (final author in authors.authors)
-              ListTile(
-                leading: Icon(
-                  author.isMain ? Icons.star_outline : Icons.person_outline,
-                ),
-                title: Text(author.name),
-                subtitle: Text(author.whatsapp),
-                selected: authors.selected?.whatsapp == author.whatsapp,
-                onTap: () {
-                  authors.select(author);
-                  context.read<FinanceProvider>().setAuthorFilter(
-                    author.whatsapp,
-                  );
-                  Navigator.pop(sheetContext);
-                },
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -555,14 +492,12 @@ class _AccountButton extends StatelessWidget {
     required this.onOpenAdmin,
     required this.onOpenSettings,
     required this.onSwitchAuthor,
-    this.child,
     this.avatarSize = 18,
   });
 
   final VoidCallback onOpenAdmin;
   final VoidCallback onOpenSettings;
   final VoidCallback onSwitchAuthor;
-  final Widget? child;
   final double avatarSize;
 
   @override
@@ -661,9 +596,10 @@ class _AccountButton extends StatelessWidget {
           ),
         ),
       ],
-      child:
-          child ??
-          _AccountAvatar(activeProfile: activeProfile, radius: avatarSize),
+      child: _AccountAvatar(
+        activeProfile: activeProfile,
+        radius: avatarSize,
+      ),
     );
   }
 }
