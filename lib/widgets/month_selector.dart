@@ -129,7 +129,7 @@ class _MonthSelectorState extends State<MonthSelector> {
                   });
                 }
                 return SizedBox(
-                  height: 40,
+                  height: 46,
                   child: ListView.builder(
                     controller: _controller,
                     scrollDirection: Axis.horizontal,
@@ -142,6 +142,7 @@ class _MonthSelectorState extends State<MonthSelector> {
                           month.month == widget.date.month;
                       return _MonthChip(
                         label: formatMonth(month),
+                        year: month.year,
                         selected: selected,
                         onTap: () => _select(month),
                       );
@@ -166,11 +167,13 @@ class _MonthSelectorState extends State<MonthSelector> {
 class _MonthChip extends StatelessWidget {
   const _MonthChip({
     required this.label,
+    required this.year,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final int year;
   final bool selected;
   final VoidCallback onTap;
 
@@ -194,15 +197,31 @@ class _MonthChip extends StatelessWidget {
                       horizontal: 16,
                       vertical: 7,
                     ),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: isDark
-                            ? AppColors.onMint
-                            : theme.colorScheme.onPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          maxLines: 1,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: isDark
+                                ? AppColors.onMint
+                                : theme.colorScheme.onPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          '$year',
+                          maxLines: 1,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: (isDark
+                                    ? AppColors.onMint
+                                    : theme.colorScheme.onPrimary)
+                                .withValues(alpha: 0.7),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -218,12 +237,25 @@ class _MonthChip extends StatelessWidget {
                       horizontal: 12,
                       vertical: 7,
                     ),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          maxLines: 1,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          '$year',
+                          maxLines: 1,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
